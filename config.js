@@ -17,7 +17,7 @@
  * ========================================================================== */
 
 window.KYOGYERA_CONFIG = {
-  SHEET_ID: '',
+  SHEET_ID: '1BefNkXvEjbRwUV1JAbQOr6sDZjf9t4gXedznfMpqJIA',
 
   // Only if a tab in your sheet has a different name from the one on the right:
   // TAB_NAMES: { groupFixtures: 'Group Fixtures' },
