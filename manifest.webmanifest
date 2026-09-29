@@ -1,0 +1,15 @@
+{
+  "name": "Kyogyera League",
+  "short_name": "Kyogyera",
+  "description": "Live scores, tables and stats for the Kyogyera League — OBs & OGs football at Kitabuguma Playground.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#050b1f",
+  "theme_color": "#070d24",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
