@@ -673,16 +673,38 @@ function buildContent(t, lookupMatch, teams) {
   });
 
   const photos = t.photos.rows.filter((r) => r.url || r.photo || r.link).map((r, i) => {
-    const src = r.url || r.photo || r.link;
+    const src = (r.url || r.photo || r.link).trim();
     const m = lookupMatch(r.matchid || r.match);
     const team = r.team ? teams.get(teamKey(r.team)) || null : null;
-    return { i, full: imageUrl(src, 1600), thumb: imageUrl(src, 600), caption: r.caption || '', credit: r.credit || r.by || '', match: m, team };
-  }).reverse();
+    // A plain file name lives in assets/photos/ (small version in assets/photos/thumbs/).
+    const local = !/^(https?:)?\/\//.test(src) && !src.includes('/');
+    return {
+      i, full: imageUrl(src, 1600), thumb: local ? 'assets/photos/thumbs/' + src : imageUrl(src, 600),
+      caption: r.caption || '', credit: r.credit || r.by || '', season: r.season || '', match: m, team,
+    };
+  });
+  // Newest first: this season's photos (no Season value, or the latest one) before older seasons.
+  const seasons = [...new Set(photos.map((p) => p.season))];
+  photos.sort((a, b) => seasonRank(b.season, seasons) - seasonRank(a.season, seasons) || (a.season === b.season ? (a.season ? a.i - b.i : b.i - a.i) : 0));
+
+  const ads = t.ads.rows.filter((r) => r.message && truthy(r.active)).map((r) => ({
+    message: r.message,
+    call: (r.call || r.phone || '').replace(/[^\d+]/g, ''),
+    whatsapp: (r.whatsapp || '').replace(/[^\d+]/g, ''),
+    link: r.link || r.url || '',
+  }));
 
   const sponsors = t.sponsors.rows.filter((r) => r.name || r.sponsor).map((r) => ({
     name: r.name || r.sponsor, logo: r.logo ? imageUrl(r.logo, 600).replace('assets/photos/', 'assets/sponsors/') : '',
     url: r.url || r.website || '', tier: r.tier || r.level || '',
   }));
 
-  return { announcements, info, photos, sponsors };
+  return { announcements, info, photos, sponsors, ads };
+}
+
+// Photos with no Season are this season's; otherwise "Season 2" ranks above "Season 1".
+function seasonRank(season) {
+  if (!season) return 1e9;
+  const n = String(season).match(/season\s*(\d+)/i) || String(season).match(/(\d{4})/);
+  return n ? +n[1] : 0;
 }

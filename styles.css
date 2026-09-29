@@ -863,3 +863,30 @@ a.b-match:hover { border-color: var(--gold); }
 .select { display: inline-block; max-width: 100%; }
 .select select { max-width: 100%; text-overflow: ellipsis; }
 #g-filters { margin-bottom: 14px; }
+
+/* --------------------------------------------------- sponsored ad strip */
+.ad-pass {
+  position: fixed; left: 8px; right: 8px; z-index: 35;
+  bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px);
+  display: flex; align-items: center; gap: 8px; height: 46px; padding: 0 6px 0 8px; border-radius: 14px;
+  background: linear-gradient(90deg, #f2c14e, #ffdd85); color: #1b1400;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  transform: translateY(20px); opacity: 0; transition: transform 0.35s ease, opacity 0.35s ease;
+}
+.ad-pass.show { transform: none; opacity: 1; }
+.ad-pass[hidden] { display: none; }
+@media (min-width: 900px) { .ad-pass { bottom: 16px; left: 50%; right: auto; width: min(760px, calc(100% - 32px)); transform: translate(-50%, 20px); } .ad-pass.show { transform: translate(-50%, 0); } }
+.ad-tag { flex: none; font: 800 10px var(--font-body); letter-spacing: 0.08em; padding: 3px 6px; border-radius: 5px; background: #1b1400; color: var(--gold); }
+.ad-window { flex: 1; min-width: 0; overflow: hidden; height: 100%; display: flex; align-items: center; }
+.ad-msg {
+  display: inline-block; white-space: nowrap; font: 800 15px/1 var(--font-display); letter-spacing: 0.03em; text-transform: uppercase;
+  color: #1b1400; text-decoration: none; will-change: transform;
+}
+.ad-msg.static { white-space: normal; font-size: 12.5px; line-height: 1.2; }
+.ad-x { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer; background: rgba(27, 20, 0, 0.12); color: #1b1400; font-size: 20px; line-height: 1; }
+
+.photo-season {
+  position: absolute; top: 8px; left: 8px; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 700;
+  background: rgba(5, 11, 31, 0.75); color: var(--gold); letter-spacing: 0.03em;
+}
+.gallery-season + .gallery-season { margin-top: 26px; }

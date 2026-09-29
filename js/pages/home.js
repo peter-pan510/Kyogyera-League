@@ -1,9 +1,10 @@
 import { runPage, esc, href, icon, PAGES, matchCard, teamLink, crest, plural, fmtDate, kickoff, photoGrid, sponsorLogos } from '../ui.js';
 import { chronoCmp } from '../model.js';
 
-const DEFAULT_ABOUT = 'The Kyogyera League brings old boys and old girls back home for the biggest reunion on the calendar. Eleven OB/OG teams, each built from a different set of school years, battle it out at Kitabuguma Playground for bragging rights and the Kyogyera trophy.';
+const DEFAULT_ABOUT = 'The Kyogyera League brings old boys and old girls back home for the biggest reunion on the calendar. After a brilliant first season in 2026, Season 2 is here: eleven OB/OG teams, each built from a different set of school years, battle it out at Kitabuguma Playground for bragging rights and the Kyogyera trophy.';
 
 runPage('home', (model, page) => {
+  adPass.set(model.ads);
   const cfg = model.cfg;
   const t = model.tournament;
   const name = cfg.leaguename || 'Kyogyera League';
@@ -110,7 +111,7 @@ runPage('home', (model, page) => {
     </section>
 
     ${model.photos.length ? `<section class="section">
-      <div class="section-head"><div><h2>Latest photos</h2></div><a class="link-more" href="${href('gallery.html')}">Gallery ${icon('arrow', 'ic ic-sm')}</a></div>
+      <div class="section-head"><div><h2>${model.photos.some((p) => !p.season) ? 'Latest photos' : 'From the gallery'}</h2>${model.photos[0] && model.photos[0].season ? `<p class="section-sub">${esc(model.photos[0].season)}</p>` : ''}</div><a class="link-more" href="${href('gallery.html')}">Gallery ${icon('arrow', 'ic ic-sm')}</a></div>
       ${photoGrid(model.photos, 'home', { limit: 6 })}
     </section>` : ''}
 
@@ -200,3 +201,84 @@ setInterval(() => {
     if (b) b.textContent = String(parts[u]).padStart(u === 'days' ? 1 : 2, '0');
   }
 }, 1000);
+
+/* --------------------------------------------------- sponsored ad strip */
+
+// Every so often a strip slides in above the bottom bar and the ad message
+// passes across it. Tap = WhatsApp / call. It pauses while touched; × hides it
+// for the rest of the visit. Ads come from the Ads tab of the sheet.
+const adPass = (() => {
+  const FIRST_DELAY = 6000, GAP = 25000, SPEED = 70; // px per second
+  let ads = [], idx = 0, el = null, timer = null, anim = null, closed = false, started = false;
+  try { closed = sessionStorage.getItem('kyogyera:ads-closed') === '1'; } catch (e) { /* ignore */ }
+
+  const target = (ad) => {
+    if (ad.whatsapp) {
+      const n = ad.whatsapp.replace(/^\+/, '').replace(/^0/, '256');
+      return { href: `https://wa.me/${n}?text=${encodeURIComponent('Hello, I saw your ad on the Kyogyera League website.')}`, ext: true };
+    }
+    if (ad.call) return { href: 'tel:' + ad.call, ext: false };
+    if (ad.link) return { href: ad.link, ext: true };
+    return null;
+  };
+
+  const build = () => {
+    el = document.createElement('aside');
+    el.className = 'ad-pass';
+    el.setAttribute('aria-label', 'Advert');
+    el.hidden = true;
+    el.innerHTML = `<span class="ad-tag">AD</span><div class="ad-window"><a class="ad-msg"></a></div>
+      <button type="button" class="ad-x" aria-label="Hide adverts">×</button>`;
+    document.body.appendChild(el);
+    el.querySelector('.ad-x').addEventListener('click', () => {
+      closed = true; hide();
+      try { sessionStorage.setItem('kyogyera:ads-closed', '1'); } catch (e) { /* ignore */ }
+    });
+    const pause = () => anim && anim.pause();
+    const play = () => anim && anim.playState === 'paused' && anim.play();
+    el.addEventListener('pointerenter', pause);
+    el.addEventListener('pointerleave', play);
+    el.addEventListener('touchstart', pause, { passive: true });
+    el.addEventListener('touchend', () => setTimeout(play, 1500));
+  };
+
+  const hide = () => {
+    if (anim) { anim.cancel(); anim = null; }
+    if (el) el.classList.remove('show');
+    setTimeout(() => { if (el && !el.classList.contains('show')) el.hidden = true; }, 400);
+  };
+
+  const showNext = () => {
+    timer = null;
+    if (closed || !ads.length || document.hidden) { schedule(GAP); return; }
+    if (!el) build();
+    const ad = ads[idx++ % ads.length];
+    const a = el.querySelector('.ad-msg');
+    const t = target(ad);
+    a.textContent = ad.message;
+    if (t) { a.href = t.href; a.target = t.ext ? '_blank' : ''; a.rel = 'noopener'; } else a.removeAttribute('href');
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('show'));
+    const win = el.querySelector('.ad-window').clientWidth;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !a.animate) {
+      a.classList.add('static');
+      setTimeout(() => { hide(); schedule(GAP); }, 9000);
+      return;
+    }
+    a.classList.remove('static');
+    const dist = win + a.scrollWidth;
+    anim = a.animate([{ transform: `translateX(${win}px)` }, { transform: `translateX(${-a.scrollWidth}px)` }],
+      { duration: (dist / SPEED) * 1000, easing: 'linear' });
+    anim.onfinish = () => { anim = null; hide(); schedule(GAP); };
+  };
+
+  const schedule = (ms) => { if (!timer) timer = setTimeout(showNext, ms); };
+
+  return {
+    set(list) {
+      ads = list || [];
+      if (!started && ads.length && !closed) { started = true; schedule(FIRST_DELAY); }
+    },
+  };
+})();

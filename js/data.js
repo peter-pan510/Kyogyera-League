@@ -29,6 +29,7 @@ export const TABS = {
   info: { tab: 'Info', expect: [['section'], ['body']] },
   photos: { tab: 'Photos', expect: [['url', 'photo', 'link']] },
   sponsors: { tab: 'Sponsors', expect: [['logo', 'sponsor']] },
+  ads: { tab: 'Ads', live: true, expect: [['message'], ['whatsapp', 'call', 'link']] },
 };
 const KEYS = Object.keys(TABS);
 const CACHE_KEY = 'kyogyera:raw:v2:' + (DEMO ? 'demo' : 'live');

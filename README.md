@@ -79,8 +79,9 @@ That's the whole connection. This fast link shows edits on the site within about
 | `GoalsForm`, `CardsForm`, `MOTMForm` | optional | *(made by the forms)* | Answers from the Google Forms |
 | `Announcements` | optional | Time, Message, Level, Active | Banner on every page, e.g. "QF1 delayed 15 min". Level `Urgent` = red |
 | `Info` | optional | Section, Title, Body, Link | Rules, contacts (a Section called `Contacts` gets Call/WhatsApp buttons) |
-| `Photos` | optional | Url, Caption, MatchID, Team, Credit | Gallery |
+| `Photos` | optional | Url, Caption, MatchID, Team, Credit, Season | Gallery. Comes with 30 photos from Season 1 (2026) |
 | `Sponsors` | optional | Name, Logo, Url, Tier | Sponsor logos on Home, Info and every footer |
+| `Ads` | optional | Message, Call, WhatsApp, Link, Active | Adverts that slide across the Home page |
 
 Optional tabs can be left empty or deleted. That part of the site then just stays hidden.
 
@@ -177,8 +178,25 @@ Add a row to the `Announcements` tab, e.g. `15:40 | QF4 delayed 5 minutes | Urge
 ### Photos
 
 - **From Google Drive:** upload to a Drive folder, share the photos as *Anyone with the link*, and paste each photo's link into the `Photos` tab (Url column). Add a Caption, and optionally the MatchID or Team, so the photo also appears on that match or team page.
-- **In the repo:** put the file in `assets/photos/` and just type its file name in Url.
+- **In the repo:** put the file in `assets/photos/` and just type its file name in Url. If you also put a small copy (about 480 px) with the same name in `assets/photos/thumbs/`, the gallery loads faster.
+- **Season:** leave it empty for this season's photos. Last year's photos say `Season 1 · 2026`, and the gallery shows them in their own section.
 - Keep photos under ~1 MB each (phone photos "Large" size) so they load fast on mobile data.
+
+### Adverts on the Home page
+
+Every ~25 seconds a gold strip slides in above the bottom bar, and the advert's message passes across it:
+
+- **Tapping it** opens WhatsApp (if a WhatsApp number is set), or calls the **Call** number, or opens the **Link**.
+- **Touching it** pauses it.
+- **×** hides adverts for the rest of that visit.
+
+With several adverts, they take turns. Add a row to the `Ads` tab:
+
+| Message | Call | WhatsApp | Link | Active |
+|---|---|---|---|---|
+| DO YOU WANT ANY DESIGNS, IN ALL FORMS AND STYLES? REACH OUT TO PETERSON — CALL 0781 464 585 OR WHATSAPP 0707 488 457 | 0781464585 | 0707488457 | | yes |
+
+Set **Active** to `no` to stop an advert. Keep the phone columns formatted as *plain text* so Sheets doesn't drop the leading 0. The setup script does this for you.
 
 ### Sponsors and team badges
 

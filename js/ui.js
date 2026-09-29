@@ -262,12 +262,14 @@ function renderFooterSponsors(model) {
 
 const photoSets = {};
 // Photo grid; tapping a photo opens a full-screen viewer you can swipe through.
-export function photoGrid(photos, setId, { limit = 0 } = {}) {
+export function photoGrid(photos, setId, { limit = 0, showSeason = true } = {}) {
   photoSets[setId] = photos;
   const list = limit ? photos.slice(0, limit) : photos;
   return `<div class="photo-grid">${list.map((ph, i) => `
     <button type="button" class="photo" data-photos="${esc(setId)}" data-i="${i}" aria-label="${esc(ph.caption || 'Open photo')}">
-      <img src="${esc(ph.thumb)}" alt="${esc(ph.caption)}" loading="lazy" onerror="this.closest('.photo').classList.add('broken')">
+      <img src="${esc(ph.thumb)}" data-full="${esc(ph.full)}" alt="${esc(ph.caption)}" loading="lazy"
+        onerror="if(this.dataset.full&&this.getAttribute('src')!==this.dataset.full){this.src=this.dataset.full}else{this.closest('.photo').classList.add('broken')}">
+      ${ph.season && showSeason ? `<span class="photo-season">${esc(ph.season)}</span>` : ''}
       ${ph.caption ? `<span class="photo-cap">${esc(ph.caption)}</span>` : ''}
     </button>`).join('')}</div>`;
 }
@@ -308,7 +310,7 @@ function openLightbox(setId, index) {
     const ph = l[lb.i];
     lb.querySelector('img').src = ph.full;
     lb.querySelector('img').alt = ph.caption || '';
-    lb.querySelector('figcaption').innerHTML = `${esc(ph.caption)}${ph.credit ? ` <span class="muted">· 📷 ${esc(ph.credit)}</span>` : ''} <span class="muted">(${lb.i + 1}/${l.length})</span>`;
+    lb.querySelector('figcaption').innerHTML = `${ph.season ? `<b>${esc(ph.season)}</b> · ` : ''}${esc(ph.caption)}${ph.credit ? ` <span class="muted">· 📷 ${esc(ph.credit)}</span>` : ''} <span class="muted">(${lb.i + 1}/${l.length})</span>`;
   };
   lb.set = setId;
   lb.hidden = false;

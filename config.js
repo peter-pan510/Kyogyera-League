@@ -38,8 +38,9 @@ window.KYOGYERA_CONFIG = {
     motmForm: '',
     announcements: '',    // Announcements: Time, Message, Level, Active
     info: '',             // Info: Section, Title, Body, Link
-    photos: '',           // Photos: Url, Caption, MatchID, Team, Credit
+    photos: '',           // Photos: Url, Caption, MatchID, Team, Credit, Season
     sponsors: '',         // Sponsors: Name, Logo, Url, Tier
+    ads: '',              // Ads: Message, Call, WhatsApp, Link, Active  (the strip that slides across the Home page)
   },
 
   // Scores, goals, cards and announcements are re-downloaded this often (seconds).

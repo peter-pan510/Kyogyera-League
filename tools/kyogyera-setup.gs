@@ -7,7 +7,7 @@
  *
  *   1. Set up tabs & dropdowns — creates any missing tabs (with the starter
  *      fixtures for 20 March 2027), adds dropdown lists (teams, players,
- *      Live/HT/FT, Yellow/Red…) and formats date/minute columns as plain text.
+ *      Live/HT/FT, Yellow/Red…) and formats date/minute/phone columns as plain text.
  *      Safe to run again; it never deletes your data.
  *   2. Create Google Forms — builds three forms for helpers at the pitch:
  *      "Log a goal", "Log a card", "Man of the Match". Answers land in the
@@ -64,10 +64,10 @@ const STARTER = {"Teams": [
     ["Key","Value"],
     ["LeagueName","Kyogyera League"],
     ["Venue","Kitabuguma Playground, Bishop McAllister, Sheema"],
-    ["Season","2027"],
+    ["Season","2027 · Season 2"],
     ["MatchDate","2027-03-20"],
     ["LastUpdated","Fixtures published — match day is Saturday 20 March 2027"],
-    ["About","The Kyogyera League brings old boys and old girls back home for the biggest reunion on the calendar. Eleven OB/OG teams, each built from a different set of school years, battle it out at Kitabuguma Playground for bragging rights and the Kyogyera trophy."],
+    ["About","The Kyogyera League brings old boys and old girls back home for the biggest reunion on the calendar. After a brilliant first season in 2026, Season 2 is here: eleven OB/OG teams, each built from a different set of school years, battle it out at Kitabuguma Playground for bragging rights and the Kyogyera trophy."],
     ["MapQuery","Bishop McAllister College Kyogyera, Sheema"],
     ["Directions",""]],
   "Info": [
@@ -78,7 +78,42 @@ const STARTER = {"Teams": [
     ["Rules","Knockouts","Top 2 in each group + the 2 best third-placed teams reach the quarterfinals. A level knockout match goes straight to penalties.",""],
     ["Rules","Cards","A red card means the player sits out the rest of that match.",""],
     ["Contacts","Tournament coordinator","Phone number to be added",""],
-    ["Contacts","Fixtures & results desk","Phone number to be added",""]]};
+    ["Contacts","Fixtures & results desk","Phone number to be added",""]],
+  "Photos": [
+    ["Url","Caption","MatchID","Team","Credit","Season"],
+    ["s1-01.jpg","Kitabuguma Playground on match day","","","","Season 1 · 2026"],
+    ["s1-02.jpg","ENSHERA FC and their supporters","","ENSHERA FC","","Season 1 · 2026"],
+    ["s1-03.jpg","Man of the Match presentation","","ENSHERA FC","","Season 1 · 2026"],
+    ["s1-04.jpg","Match action","","","","Season 1 · 2026"],
+    ["s1-05.jpg","AMARO FC ladies bring the noise","","AMARO FC","","Season 1 · 2026"],
+    ["s1-06.jpg","SC MASIRI all smiles","","SC MASIRI","","Season 1 · 2026"],
+    ["s1-07.jpg","Full stretch — a diving save","","","","Season 1 · 2026"],
+    ["s1-08.jpg","Wearing the league colours","","","","Season 1 · 2026"],
+    ["s1-09.jpg","Team line-up before kick-off","","ENSHERA FC","","Season 1 · 2026"],
+    ["s1-10.jpg","Number 10 on the ball","","","","Season 1 · 2026"],
+    ["s1-11.jpg","AMARO FC supporters in full voice","","AMARO FC","","Season 1 · 2026"],
+    ["s1-12.jpg","Man of the Match — AKARERE FC","","AKARERE FC","","Season 1 · 2026"],
+    ["s1-13.jpg","Lining up the shot","","","","Season 1 · 2026"],
+    ["s1-14.jpg","AMARO FC squad photo","","AMARO FC","","Season 1 · 2026"],
+    ["s1-15.jpg","Vuvuzela time","","","","Season 1 · 2026"],
+    ["s1-16.jpg","Taking on the defender","","","","Season 1 · 2026"],
+    ["s1-17.jpg","SC MASIRI — names on the back","","SC MASIRI","","Season 1 · 2026"],
+    ["s1-18.jpg","Man of the Match","","","","Season 1 · 2026"],
+    ["s1-19.jpg","Friends on the touchline","","","","Season 1 · 2026"],
+    ["s1-20.jpg","Free kick","","","","Season 1 · 2026"],
+    ["s1-21.jpg","Warm-up routine","","","","Season 1 · 2026"],
+    ["s1-22.jpg","Match-day smiles","","","","Season 1 · 2026"],
+    ["s1-23.jpg","Proud of our Man of the Match","","","","Season 1 · 2026"],
+    ["s1-24.jpg","Reunited at Kitabuguma","","","","Season 1 · 2026"],
+    ["s1-25.jpg","Walking out","","","","Season 1 · 2026"],
+    ["s1-26.jpg","Supporters with vuvuzelas","","","","Season 1 · 2026"],
+    ["s1-27.jpg","ENSHERA FC fans","","ENSHERA FC","","Season 1 · 2026"],
+    ["s1-28.jpg","Action in front of the tents","","","","Season 1 · 2026"],
+    ["s1-29.jpg","The crowd around the pitch","","","","Season 1 · 2026"],
+    ["s1-30.jpg","Trophy night","","","","Season 1 · 2026"]],
+  "Ads": [
+    ["Message","Call","WhatsApp","Link","Active"],
+    ["DO YOU WANT ANY DESIGNS, IN ALL FORMS AND STYLES? REACH OUT TO PETERSON — CALL 0781 464 585 OR WHATSAPP 0707 488 457","0781464585","0707488457","","yes"]]};
 
 const TAB_HEADERS = {
   Teams: ['TeamName', 'Group', 'Badge', 'Short'],
@@ -91,8 +126,9 @@ const TAB_HEADERS = {
   MatchStats: ['MatchID', 'Team', 'Possession', 'Shots', 'ShotsOnTarget', 'Corners', 'Fouls', 'Offsides', 'Saves'],
   Announcements: ['Time', 'Message', 'Level', 'Active'],
   Info: ['Section', 'Title', 'Body', 'Link'],
-  Photos: ['Url', 'Caption', 'MatchID', 'Team', 'Credit'],
+  Photos: ['Url', 'Caption', 'MatchID', 'Team', 'Credit', 'Season'],
   Sponsors: ['Name', 'Logo', 'Url', 'Tier'],
+  Ads: ['Message', 'Call', 'WhatsApp', 'Link', 'Active'],
 };
 
 // Columns kept as plain text so Google's live CSV link never drops them.
@@ -100,6 +136,7 @@ const TEXT_COLUMNS = {
   GroupFixtures: ['MatchID', 'Date'], KnockoutFixtures: ['MatchID', 'Date'], Config: ['Value'],
   Goals: ['MatchID', 'Minute'], Cards: ['MatchID', 'Minute'], MatchStats: ['MatchID'],
   Announcements: ['Time'], Players: ['Number'], Photos: ['MatchID'],
+  Ads: ['Call', 'WhatsApp'], // keeps the leading 0 of phone numbers
 };
 
 function onOpen() {
@@ -199,6 +236,7 @@ function addDropdowns() {
   set('Players', 'Team', rangeRule(teamsRange, false));
   set('Announcements', 'Level', listRule(['Urgent']));
   set('Announcements', 'Active', listRule(['yes', 'no']));
+  set('Ads', 'Active', listRule(['yes', 'no']));
 }
 
 /* ------------------------------------------------------------------ data */
