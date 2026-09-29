@@ -187,12 +187,15 @@ export function runPage(pageId, render) {
   mountShell(pageId);
   const page = $('#page');
   page.innerHTML = '<div class="loading"><span class="spinner"></span>Loading the latest scores…</div>';
-  start((model) => {
+  // Start once the page's own script has finished loading: with scores saved on
+  // the phone, the first draw happens straight away, and it must not run before
+  // the rest of the page script exists.
+  queueMicrotask(() => start((model) => {
     applyConfig(model);
     const y = window.scrollY;
     render(model, page);
     window.scrollTo(0, y);
-  }, setStatus);
+  }, setStatus));
 }
 
 function applyConfig(model) {

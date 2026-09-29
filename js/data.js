@@ -150,17 +150,20 @@ export function start(onModel, onStatus) {
   let lastRawKey = null, lastOk = 0, hasModel = false, failing = false, errMsg = '', inFlight = false, lastSlow = 0;
   const savedAt = cached ? cached.t : 0;
 
+  let drawError = '';
   const emit = () => {
     const rawKey = KEYS.map((k) => raw[k] || '').join('\u0000');
     if (rawKey === lastRawKey) return;
-    lastRawKey = rawKey;
     try {
       const model = build(raw);
-      hasModel = true;
       onModel(model);
+      hasModel = true;
+      lastRawKey = rawKey; // only remember data that was drawn successfully
+      drawError = '';
     } catch (e) {
+      // Leave lastRawKey alone so the next refresh tries again instead of freezing.
       console.error(e);
-      errMsg = 'The score sheet has something the site could not read: ' + e.message;
+      drawError = 'Something went wrong showing this page (' + e.message + '). Retrying automatically — tell the site admin if this stays.';
     }
   };
 
@@ -170,6 +173,7 @@ export function start(onModel, onStatus) {
       : new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
   const status = () => {
+    if (drawError) return onStatus({ state: hasModel ? 'stale' : 'err', ago: '', message: drawError });
     if (!hasModel) return onStatus({ state: failing ? 'err' : 'loading', message: errMsg });
     if (failing || !lastOk) {
       return onStatus({ state: failing ? 'stale' : 'loading', ago: ago(lastOk || savedAt), message: errMsg });
