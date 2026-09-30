@@ -34,7 +34,7 @@ data/             starter data (one CSV per sheet tab)
 data/demo/        made-up scores, goals, cards, photos… (add ?demo to any page address)
 assets/           league badge, icons, link-preview image
 assets/badges/    team badges    assets/photos/  photos    assets/sponsors/  sponsor logos
-tools/kyogyera-setup.gs    Google Sheets helper: tabs, dropdowns, Google Forms
+tools/apps-script/Code.gs    Google Sheets helper: tabs, dropdowns, Google Forms
 tools/set-site-url.sh      sets the address used in WhatsApp link previews
 ```
 
@@ -43,7 +43,7 @@ tools/set-site-url.sh      sets the address used in WhatsApp link previews
 ## 1. Set up the Google Sheet (about 10 minutes, on a computer)
 
 1. Create a new, empty Google Sheet, for example "Kyogyera League 2027".
-2. Choose **Extensions → Apps Script**. Delete what's in `Code.gs` and paste in the whole of **`tools/kyogyera-setup.gs`**. Click 💾 **Save** and close the tab.
+2. Choose **Extensions → Apps Script**. Delete what's in `Code.gs` and paste in the whole of **`tools/apps-script/Code.gs`**. Click 💾 **Save** and close the tab.
 3. Reload the sheet. A **Kyogyera** menu appears. Choose **Kyogyera → 1. Set up tabs & dropdowns**.
    - Google asks you to authorise the script: *Google hasn't verified this app → Advanced → Go to … (unsafe) → Allow*. It's your own script, and it only touches this sheet and the forms it creates.
    - It creates every tab, fills in the 11 teams and all 22 fixtures for 20 March 2027, and adds the dropdowns:
@@ -84,6 +84,24 @@ That's the whole connection. This fast link shows edits on the site within about
 | `Ads` | optional | Message, Call, WhatsApp, Link, Active | Adverts that slide across the Home page |
 
 Optional tabs can be left empty or deleted. That part of the site then just stays hidden.
+
+### Updating the sheet's script later (no copy-paste)
+
+The script inside the sheet is linked to `tools/apps-script/` with Google's **clasp** tool. When `Code.gs` changes:
+
+```sh
+cd tools/apps-script
+npx -y @google/clasp push      # sends Code.gs into the sheet's script
+```
+
+Then reload the sheet. If the change adds tabs, columns or dropdowns, run **Kyogyera → 1. Set up tabs & dropdowns** once more. It only adds what's missing and never deletes data.
+
+Setup on a new computer, once:
+
+1. Turn on *Google Apps Script API* at https://script.google.com/home/usersettings.
+2. Run `npx -y @google/clasp login` and sign in with the sheet owner's Google account.
+
+`tools/apps-script/.clasp.json` holds the script's ID, which on its own gives no access. Your sign-in is stored in `~/.clasprc.json` in your home folder, outside the project.
 
 ---
 

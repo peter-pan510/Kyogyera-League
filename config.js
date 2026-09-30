@@ -33,7 +33,7 @@ window.KYOGYERA_CONFIG = {
     goals: '',            // Goals: MatchID, Team, Scorer, Assist, Minute, Type
     cards: '',            // Cards: MatchID, Team, Player, Card, Minute
     matchStats: '',       // MatchStats: MatchID, Team, Possession, Shots, ShotsOnTarget, Corners, Fouls, Offsides, Saves
-    goalsForm: '',        // GoalsForm / CardsForm / MOTMForm: Google Form answers (made by tools/kyogyera-setup.gs)
+    goalsForm: '',        // GoalsForm / CardsForm / MOTMForm: Google Form answers (made by tools/apps-script/Code.gs)
     cardsForm: '',
     motmForm: '',
     announcements: '',    // Announcements: Time, Message, Level, Active

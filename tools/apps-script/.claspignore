@@ -1,0 +1,4 @@
+# Only these files go to the Google Sheet's script project
+**/**
+!Code.gs
+!appsscript.json
