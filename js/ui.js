@@ -230,10 +230,49 @@ function renderAnnouncementBar(model) {
   const a = model.announcements.find((x) => !dismissed().has(x.id));
   bar.innerHTML = a ? `<div class="announce${a.urgent ? ' urgent' : ''}" role="status">
       <div class="wrap announce-inner">${icon('megaphone', 'ic ic-sm')}
-        <span class="announce-text">${a.time ? `<b>${esc(a.time)}</b> · ` : ''}${linkify(a.message)}</span>
+        ${a.time ? `<b class="announce-time">${esc(a.time)}</b>` : ''}
+        <div class="announce-window"><div class="announce-track"><span class="announce-text">${linkify(a.message).replace(/<br>/g, ' ')}</span></div></div>
         <button type="button" class="announce-x" data-dismiss="${esc(a.id)}" aria-label="Hide this message">${icon('close', 'ic ic-sm')}</button>
       </div></div>` : '';
+  slideAnnouncement();
 }
+
+// A message too long for one line slides along in a loop so it can be read in
+// full; a short one stays still. Touching it pauses it.
+let annAnim = null;
+function slideAnnouncement() {
+  if (annAnim) { annAnim.cancel(); annAnim = null; }
+  const win = document.querySelector('.announce-window');
+  if (!win) return;
+  const track = win.querySelector('.announce-track');
+  const text = track.querySelector('.announce-text');
+  win.classList.remove('sliding', 'wrapped');
+  const copy = track.querySelector('.announce-copy');
+  if (copy) copy.remove();
+  if (text.scrollWidth <= win.clientWidth + 2) return;
+  if (!text.animate || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { win.classList.add('wrapped'); return; }
+  win.classList.add('sliding');
+  // Second copy right behind the first, so the loop has no empty gap.
+  const gap = 60;
+  const twin = text.cloneNode(true);
+  twin.classList.add('announce-copy');
+  twin.setAttribute('aria-hidden', 'true');
+  twin.style.paddingLeft = gap + 'px';
+  track.appendChild(twin);
+  const dist = text.scrollWidth + gap;
+  const SPEED = 45; // px per second — slow enough to read
+  const hold = 1500; // start still for a moment so the beginning can be read
+  annAnim = track.animate(
+    [{ transform: 'translateX(0)' }, { transform: 'translateX(0)', offset: hold / (hold + (dist / SPEED) * 1000) }, { transform: `translateX(${-dist}px)` }],
+    { duration: hold + (dist / SPEED) * 1000, iterations: Infinity, easing: 'linear' },
+  );
+  const pause = () => annAnim && annAnim.pause();
+  const play = () => annAnim && annAnim.playState === 'paused' && annAnim.play();
+  win.onpointerenter = pause; win.onpointerleave = play;
+  win.ontouchstart = pause; win.ontouchend = () => setTimeout(play, 1500);
+}
+let annResize = 0;
+window.addEventListener('resize', () => { clearTimeout(annResize); annResize = setTimeout(slideAnnouncement, 200); });
 document.addEventListener('click', (e) => {
   const b = e.target.closest('[data-dismiss]');
   if (!b) return;
@@ -555,7 +594,7 @@ export function plural(n, word, pl) {
 // × hides it for the rest of the visit. Ads come from the Ads tab of the sheet.
 // The gap between ads carries across pages, so browsing doesn't repeat it.
 export const adPass = (() => {
-  const FIRST_DELAY = 6000, GAP = 25000, SPEED = 70; // px per second
+  const FIRST_DELAY = 6000, GAP = 60000, SPEED = 70; // px per second
   let ads = [], idx = 0, el = null, timer = null, anim = null, closed = false, started = false;
   const LAST_KEY = 'kyogyera:ad-last'; // when the last ad finished (this visit, all pages)
   const store = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } return null; };

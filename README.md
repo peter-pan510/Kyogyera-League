@@ -191,7 +191,7 @@ At kick-off choose `Live`. Change ScoreHome/ScoreAway as goals go in. At the fin
 
 ### Announcements
 
-Add a row to the `Announcements` tab, e.g. `15:40 | QF4 delayed 5 minutes | Urgent | yes`. It appears as a banner at the top of every page. Visitors can close it. Set Active to `no` to take it down.
+Add a row to the `Announcements` tab, e.g. `15:40 | QF4 delayed 5 minutes | Urgent | yes`. It appears as a banner pinned to the top of every page, and stays there while people scroll. A message too long for one line slides along slowly so it can be read in full (touch to pause). Visitors can close it. Set Active to `no` to take it down.
 
 ### Photos
 
@@ -202,7 +202,7 @@ Add a row to the `Announcements` tab, e.g. `15:40 | QF4 delayed 5 minutes | Urge
 
 ### Adverts (on every page)
 
-On every page, a gold strip slides in above the bottom bar, and the advert's message passes across it. The next one comes ~25 seconds after the last one finished, including when someone moves to another page:
+On every page, a gold strip slides in above the bottom bar, and the advert's message passes across it. The next one comes 60 seconds after the last one finished, including when someone moves to another page:
 
 - **Tapping it** opens WhatsApp (if a WhatsApp number is set), or calls the **Call** number, or opens the **Link**.
 - **Touching it** pauses it.
