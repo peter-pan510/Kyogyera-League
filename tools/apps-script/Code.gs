@@ -408,7 +408,7 @@ function refreshSeason1Photos() {
   const head = values[0].map(String);
   const seasonCol = head.indexOf('Season');
   if (seasonCol < 0) { SpreadsheetApp.getUi().alert('The Photos tab has no Season column — run "1. Set up tabs & dropdowns" first.'); return; }
-  const keep = values.slice(1).filter((r) => r.some(String) && !/^season 1/i.test(String(r[seasonCol])));
+  const keep = values.slice(1).filter((r) => r.some(String) && !/^season 1\b/i.test(String(r[seasonCol])));
   const fresh = starter.slice(1).map((r) => head.map((h) => { const i = starter[0].indexOf(h); return i >= 0 ? r[i] : ''; }));
   const rows = fresh.concat(keep);
   sh.getRange(2, 1, Math.max(sh.getMaxRows() - 1, 1), head.length).clearContent();
