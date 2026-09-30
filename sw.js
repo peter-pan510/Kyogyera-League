@@ -3,7 +3,7 @@
  *   straight away; if the signal is gone or too slow, the saved copy is used.
  * - Fonts and images: saved copy first (they rarely change).
  * - Score sheet data is never cached here — the pages keep their own saved copy. */
-const CACHE = 'kyogyera-v3';
+const CACHE = 'kyogyera-v4';
 const SHELL = [
   './', 'index.html', 'matches.html', 'groups.html', 'table.html', 'knockout.html', 'stats.html',
   'teams.html', 'team.html', 'match.html', 'gallery.html', 'info.html',

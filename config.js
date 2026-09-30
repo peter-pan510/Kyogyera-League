@@ -40,7 +40,7 @@ window.KYOGYERA_CONFIG = {
     info: '',             // Info: Section, Title, Body, Link
     photos: '',           // Photos: Url, Caption, MatchID, Team, Credit, Season
     sponsors: '',         // Sponsors: Name, Logo, Url, Tier
-    ads: '',              // Ads: Message, Call, WhatsApp, Link, Active  (the strip that slides across the Home page)
+    ads: '',              // Ads: Message, Call, WhatsApp, Link, Active  (the strip that slides across every page)
   },
 
   // Scores, goals, cards and announcements are re-downloaded this often (seconds).

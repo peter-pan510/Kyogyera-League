@@ -204,6 +204,7 @@ export function runPage(pageId, render) {
 
 function applyConfig(model) {
   renderAnnouncementBar(model);
+  adPass.set(model.ads);
   renderFooterSponsors(model);
   const name = model.cfg.leaguename || 'Kyogyera League';
   const first = name.replace(/\s+league$/i, '');
@@ -546,3 +547,98 @@ export function segTabs(items, active, name = 'view') {
 export function plural(n, word, pl) {
   return n + ' ' + (n === 1 ? word : pl || word + 's');
 }
+
+/* --------------------------------------------------- sponsored ad strip */
+
+// On every page, every so often a strip slides in above the bottom bar and the
+// ad message passes across it. Tap = WhatsApp / call. It pauses while touched;
+// × hides it for the rest of the visit. Ads come from the Ads tab of the sheet.
+// The gap between ads carries across pages, so browsing doesn't repeat it.
+export const adPass = (() => {
+  const FIRST_DELAY = 6000, GAP = 25000, SPEED = 70; // px per second
+  let ads = [], idx = 0, el = null, timer = null, anim = null, closed = false, started = false;
+  const LAST_KEY = 'kyogyera:ad-last'; // when the last ad finished (this visit, all pages)
+  const store = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } return null; };
+  try { closed = sessionStorage.getItem('kyogyera:ads-closed') === '1'; } catch (e) { /* ignore */ }
+
+  const target = (ad) => {
+    if (ad.whatsapp) {
+      const n = ad.whatsapp.replace(/^\+/, '').replace(/^0/, '256');
+      return { href: `https://wa.me/${n}?text=${encodeURIComponent('Hello, I saw your ad on the Kyogyera League website.')}`, ext: true };
+    }
+    if (ad.call) return { href: 'tel:' + ad.call, ext: false };
+    if (ad.link) return { href: ad.link, ext: true };
+    return null;
+  };
+
+  const build = () => {
+    el = document.createElement('aside');
+    el.className = 'ad-pass';
+    el.setAttribute('aria-label', 'Advert');
+    el.hidden = true;
+    el.innerHTML = `<span class="ad-tag">AD</span><div class="ad-window"><a class="ad-msg"></a></div>
+      <button type="button" class="ad-x" aria-label="Hide adverts">×</button>`;
+    document.body.appendChild(el);
+    el.querySelector('.ad-x').addEventListener('click', () => {
+      closed = true; hide();
+      try { sessionStorage.setItem('kyogyera:ads-closed', '1'); } catch (e) { /* ignore */ }
+    });
+    const pause = () => anim && anim.pause();
+    const play = () => anim && anim.playState === 'paused' && anim.play();
+    el.addEventListener('pointerenter', pause);
+    el.addEventListener('pointerleave', play);
+    el.addEventListener('touchstart', pause, { passive: true });
+    el.addEventListener('touchend', () => setTimeout(play, 1500));
+  };
+
+  const hide = () => {
+    store(LAST_KEY, String(Date.now()));
+    if (anim) { anim.cancel(); anim = null; }
+    if (el) el.classList.remove('show');
+    setTimeout(() => { if (el && !el.classList.contains('show')) el.hidden = true; }, 400);
+  };
+
+  idx = +(store('kyogyera:ad-idx') || 0);
+
+  const showNext = () => {
+    timer = null;
+    if (closed || !ads.length || document.hidden) { schedule(GAP); return; }
+    if (!el) build();
+    store(LAST_KEY, String(Date.now() + 60000)); // "showing now" — hide() sets the real end time
+    store('kyogyera:ad-idx', String(idx + 1));
+    const ad = ads[idx++ % ads.length];
+    const a = el.querySelector('.ad-msg');
+    const t = target(ad);
+    a.textContent = ad.message;
+    if (t) { a.href = t.href; a.target = t.ext ? '_blank' : ''; a.rel = 'noopener'; } else a.removeAttribute('href');
+    el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('show'));
+    const win = el.querySelector('.ad-window').clientWidth;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !a.animate) {
+      a.classList.add('static');
+      setTimeout(() => { hide(); schedule(GAP); }, 9000);
+      return;
+    }
+    a.classList.remove('static');
+    const dist = win + a.scrollWidth;
+    anim = a.animate([{ transform: `translateX(${win}px)` }, { transform: `translateX(${-a.scrollWidth}px)` }],
+      { duration: (dist / SPEED) * 1000, easing: 'linear' });
+    anim.onfinish = () => { anim = null; hide(); schedule(GAP); };
+  };
+
+  const schedule = (ms) => { if (!timer) timer = setTimeout(showNext, ms); };
+  // Leaving the page mid-ad counts as the ad having finished now.
+  window.addEventListener('pagehide', () => { if (el && el.classList.contains('show')) store(LAST_KEY, String(Date.now())); });
+
+  return {
+    set(list) {
+      ads = list || [];
+      if (!started && ads.length && !closed) {
+        started = true;
+        const last = +(store(LAST_KEY) || 0);
+        schedule(Math.max(FIRST_DELAY, last + GAP - Date.now()));
+      }
+    },
+  };
+})();
