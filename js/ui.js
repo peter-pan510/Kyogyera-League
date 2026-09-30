@@ -90,14 +90,18 @@ export function mountShell(pageId) {
         <button type="button" class="topnav-more${TOPNAV.includes(pageId) ? '' : ' current'}" data-open-drawer aria-controls="drawer">More ${icon('more', 'ic ic-sm')}</button>
       </nav>
       <span class="live" id="live-status" role="status"><span class="dot"></span><span class="live-text">Loading…</span></span>
-    </div>`;
+    </div>
+    <div id="announce-bar"></div>`;
   page.before(header);
+  // The header (with any announcement) stays pinned; things that stick below it need its height.
+  const setTop = () => document.documentElement.style.setProperty('--sticky-top', header.offsetHeight + 'px');
+  setTop();
+  if (window.ResizeObserver) new ResizeObserver(setTop).observe(header);
 
   const banners = document.createElement('div');
   banners.innerHTML = `
     ${DEMO ? `<div class="banner banner-demo">Demo mode — made-up scores. <a href="${location.pathname}">Switch to real data</a></div>` : ''}
-    <div class="banner banner-error" id="error-banner" hidden></div>
-    <div id="announce-bar"></div>`;
+    <div class="banner banner-error" id="error-banner" hidden></div>`;
   page.before(banners);
 
   const footer = document.createElement('footer');
