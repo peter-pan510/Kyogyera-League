@@ -15,6 +15,8 @@
  *   3. Refresh form lists — updates the match and player lists in the forms
  *      (run after editing the Players tab or filling in knockout teams).
  *   4. Auto-refresh form lists — does step 3 every 10 minutes by itself.
+ *   5. Refresh Season 1 photos — replaces the Season 1 rows of the Photos tab
+ *      with the photo list that ships with the website (your own rows stay).
  *
  * The first time you run something, Google asks you to authorise the script
  * ("Google hasn't verified this app" → Advanced → Go to … → Allow). It only
@@ -81,36 +83,38 @@ const STARTER = {"Teams": [
     ["Contacts","Fixtures & results desk","Phone number to be added",""]],
   "Photos": [
     ["Url","Caption","MatchID","Team","Credit","Season"],
-    ["s1-01.jpg","Kitabuguma Playground on match day","","","","Season 1 · 2026"],
-    ["s1-02.jpg","ENSHERA FC and their supporters","","ENSHERA FC","","Season 1 · 2026"],
-    ["s1-03.jpg","Man of the Match presentation","","ENSHERA FC","","Season 1 · 2026"],
-    ["s1-04.jpg","Match action","","","","Season 1 · 2026"],
-    ["s1-05.jpg","AMARO FC ladies bring the noise","","AMARO FC","","Season 1 · 2026"],
-    ["s1-06.jpg","SC MASIRI all smiles","","SC MASIRI","","Season 1 · 2026"],
-    ["s1-07.jpg","Full stretch — a diving save","","","","Season 1 · 2026"],
-    ["s1-08.jpg","Wearing the league colours","","","","Season 1 · 2026"],
-    ["s1-09.jpg","Team line-up before kick-off","","ENSHERA FC","","Season 1 · 2026"],
-    ["s1-10.jpg","Number 10 on the ball","","","","Season 1 · 2026"],
-    ["s1-11.jpg","AMARO FC supporters in full voice","","AMARO FC","","Season 1 · 2026"],
-    ["s1-12.jpg","Man of the Match — AKARERE FC","","AKARERE FC","","Season 1 · 2026"],
-    ["s1-13.jpg","Lining up the shot","","","","Season 1 · 2026"],
-    ["s1-14.jpg","AMARO FC squad photo","","AMARO FC","","Season 1 · 2026"],
-    ["s1-15.jpg","Vuvuzela time","","","","Season 1 · 2026"],
-    ["s1-16.jpg","Taking on the defender","","","","Season 1 · 2026"],
-    ["s1-17.jpg","SC MASIRI — names on the back","","SC MASIRI","","Season 1 · 2026"],
-    ["s1-18.jpg","Man of the Match","","","","Season 1 · 2026"],
-    ["s1-19.jpg","Friends on the touchline","","","","Season 1 · 2026"],
-    ["s1-20.jpg","Free kick","","","","Season 1 · 2026"],
-    ["s1-21.jpg","Warm-up routine","","","","Season 1 · 2026"],
-    ["s1-22.jpg","Match-day smiles","","","","Season 1 · 2026"],
-    ["s1-23.jpg","Proud of our Man of the Match","","","","Season 1 · 2026"],
-    ["s1-24.jpg","Reunited at Kitabuguma","","","","Season 1 · 2026"],
-    ["s1-25.jpg","Walking out","","","","Season 1 · 2026"],
-    ["s1-26.jpg","Supporters with vuvuzelas","","","","Season 1 · 2026"],
-    ["s1-27.jpg","ENSHERA FC fans","","ENSHERA FC","","Season 1 · 2026"],
-    ["s1-28.jpg","Action in front of the tents","","","","Season 1 · 2026"],
-    ["s1-29.jpg","The crowd around the pitch","","","","Season 1 · 2026"],
-    ["s1-30.jpg","Trophy night","","","","Season 1 · 2026"]],
+    ["sn1-01.jpg","Warming up on the pitch","","","","Season 1 · 2026"],
+    ["sn1-02.jpg","One big Kyogyera family","","","","Season 1 · 2026"],
+    ["sn1-03.jpg","The eagle at school","","","","Season 1 · 2026"],
+    ["sn1-04.jpg","Tents up at Kitabuguma","","","","Season 1 · 2026"],
+    ["sn1-05.jpg","Team talk","","","","Season 1 · 2026"],
+    ["sn1-06.jpg","Pure joy","","","","Season 1 · 2026"],
+    ["sn1-07.jpg","Carried away!","","","","Season 1 · 2026"],
+    ["sn1-08.jpg","Something on the grill","","","","Season 1 · 2026"],
+    ["sn1-09.jpg","Friends in jerseys","","","","Season 1 · 2026"],
+    ["sn1-10.jpg","Squad goals","","","","Season 1 · 2026"],
+    ["sn1-11.jpg","Handshakes all round","","","","Season 1 · 2026"],
+    ["sn1-12.jpg","All smiles","","","","Season 1 · 2026"],
+    ["sn1-13.jpg","Reunited","","","","Season 1 · 2026"],
+    ["sn1-14.jpg","Three friends","","","","Season 1 · 2026"],
+    ["sn1-15.jpg","Numbers on the back","","","","Season 1 · 2026"],
+    ["sn1-16.jpg","Coach's orders","","","","Season 1 · 2026"],
+    ["sn1-17.jpg","The crowd gathers","","","","Season 1 · 2026"],
+    ["sn1-18.jpg","Lined up on the pitch","","","","Season 1 · 2026"],
+    ["sn1-19.jpg","Supporters in blue","","","","Season 1 · 2026"],
+    ["sn1-20.jpg","Back at school","","","","Season 1 · 2026"],
+    ["sn1-21.jpg","Celebrating in the trees","","","","Season 1 · 2026"],
+    ["sn1-22.jpg","A warm welcome","","","","Season 1 · 2026"],
+    ["sn1-23.jpg","Big smiles","","","","Season 1 · 2026"],
+    ["sn1-24.jpg","Friends reunited","","","","Season 1 · 2026"],
+    ["sn1-25.jpg","Striking a pose","","","","Season 1 · 2026"],
+    ["sn1-26.jpg","Walking in together","","","","Season 1 · 2026"],
+    ["sn1-27.jpg","Arriving at the ground","","","","Season 1 · 2026"],
+    ["sn1-28.jpg","Matching in black","","","","Season 1 · 2026"],
+    ["sn1-29.jpg","Too cool","","","","Season 1 · 2026"],
+    ["sn1-30.jpg","Shades on","","","","Season 1 · 2026"],
+    ["sn1-31.jpg","Game face","","","","Season 1 · 2026"],
+    ["sn1-32.jpg","VIP","","","","Season 1 · 2026"]],
   "Ads": [
     ["Message","Call","WhatsApp","Link","Active"],
     ["DO YOU WANT ANY DESIGNS, IN ALL FORMS AND STYLES? REACH OUT TO PETERSON — CALL 0781 464 585 OR WHATSAPP 0707 488 457","0781464585","0707488457","","yes"]]};
@@ -145,6 +149,8 @@ function onOpen() {
     .addItem('2. Create Google Forms', 'createForms')
     .addItem('3. Refresh form lists', 'refreshForms')
     .addItem('4. Auto-refresh form lists (every 10 min)', 'installAutoRefresh')
+    .addSeparator()
+    .addItem('5. Refresh Season 1 photos', 'refreshSeason1Photos')
     .addToUi();
 }
 
@@ -377,4 +383,25 @@ function installAutoRefresh() {
   ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'autoRefresh').forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('autoRefresh').timeBased().everyMinutes(10).create();
   SpreadsheetApp.getUi().alert('Done — the form lists now refresh themselves every 10 minutes.');
+}
+
+/* ------------------------------------------------------ season 1 photos */
+
+// Replaces every Photos row whose Season starts with "Season 1" with the
+// Season 1 photo list that ships with the website. Other rows are kept.
+function refreshSeason1Photos() {
+  const ss = SpreadsheetApp.getActive();
+  const sh = ss.getSheetByName('Photos');
+  const starter = STARTER.Photos;
+  if (!sh || !starter) { SpreadsheetApp.getUi().alert('No Photos tab — run "1. Set up tabs & dropdowns" first.'); return; }
+  const values = sh.getDataRange().getValues();
+  const head = values[0].map(String);
+  const seasonCol = head.indexOf('Season');
+  if (seasonCol < 0) { SpreadsheetApp.getUi().alert('The Photos tab has no Season column — run "1. Set up tabs & dropdowns" first.'); return; }
+  const keep = values.slice(1).filter((r) => r.some(String) && !/^season 1/i.test(String(r[seasonCol])));
+  const fresh = starter.slice(1).map((r) => head.map((h) => { const i = starter[0].indexOf(h); return i >= 0 ? r[i] : ''; }));
+  const rows = fresh.concat(keep);
+  sh.getRange(2, 1, Math.max(sh.getMaxRows() - 1, 1), head.length).clearContent();
+  if (rows.length) sh.getRange(2, 1, rows.length, head.length).setValues(rows);
+  SpreadsheetApp.getUi().alert('Photos updated: ' + fresh.length + ' Season 1 photos' + (keep.length ? ', plus your ' + keep.length + ' other photo(s) kept.' : '.'));
 }
