@@ -17,6 +17,8 @@
  *   4. Auto-refresh form lists — does step 3 every 10 minutes by itself.
  *   5. Refresh Season 1 photos — replaces the Season 1 rows of the Photos tab
  *      with the photo list that ships with the website (your own rows stay).
+ *   6. Admin codes — creates the sign-in codes for the website's Admin page
+ *      (admin / referee / editor), or makes new ones. See Admin.gs.
  *
  * The first time you run something, Google asks you to authorise the script
  * ("Google hasn't verified this app" → Advanced → Go to … → Allow). It only
@@ -151,6 +153,8 @@ function onOpen() {
     .addItem('4. Auto-refresh form lists (every 10 min)', 'installAutoRefresh')
     .addSeparator()
     .addItem('5. Refresh Season 1 photos', 'refreshSeason1Photos')
+    .addSeparator()
+    .addItem('6. Admin codes (website sign-in)', 'showAdminCodes')
     .addToUi();
 }
 

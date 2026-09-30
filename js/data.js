@@ -144,6 +144,10 @@ function writeCache(raw) {
  *  onModel(model)  — called whenever the data changes (and once from the saved copy).
  *  onStatus({ state: 'loading'|'ok'|'stale'|'err', ago, message }) — live indicator.
  */
+// Lets the Admin page ask for fresh data straight after saving a change.
+let activeRefresh = null;
+export function requestRefresh() { if (activeRefresh) activeRefresh(true); }
+
 export function start(onModel, onStatus) {
   const cached = readCache();
   const raw = cached && cached.raw ? { ...cached.raw } : {};
@@ -209,6 +213,7 @@ export function start(onModel, onStatus) {
     status();
   }
 
+  activeRefresh = refresh;
   refresh(true);
   setInterval(() => {
     if (document.hidden) return;

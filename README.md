@@ -105,6 +105,34 @@ Setup on a new computer, once:
 
 ---
 
+## Admin page (sign in and update from the site)
+
+The gold **ADMIN** button at the top of every page opens a sign-in screen. Without a valid code you stay on that screen.
+
+| Role | Can do |
+|---|---|
+| **Admin** | Everything, including announcements, sponsors, adverts, codes and the activity log |
+| **Editor** | Everything **except** announcements, sponsors, adverts and codes |
+| **Referee** | The **match console** only: kick-off / HT / FT, goals (scorer, assist, minute, penalty or own goal), yellow and red cards, fouls, corners, shots and other stats, Man of the Match, and adding players who aren't on the list |
+
+**Getting the codes:** in the sheet, choose **Kyogyera → 6. Admin codes**. The first time, it creates three codes (Admin, Referee, Editor) and shows them once. Write them down.
+
+- Codes are stored as a secure hash inside the sheet's script. They are *not* in the sheet (which anyone with its link can read) and not on GitHub.
+- An admin can give more people codes, or make new ones, under **Admin → Codes**.
+- Every change made through the Admin page is written to a **Log** tab (who, when, what).
+- After too many wrong codes, sign-in pauses for 10 minutes.
+
+**How it works:** the Admin page sends each change to a small web service inside your sheet (`tools/apps-script/Admin.gs`). It checks the code and role, then writes the row. Its address is `ADMIN_API_URL` in `config.js`. After changing `Admin.gs`, update the service from `tools/apps-script`:
+
+```sh
+npx -y @google/clasp push
+npx -y @google/clasp redeploy AKfycbxxGdC5zpTpPfMRBSdTwvB3XYf4jvk2nZgLHd4X9VrYLMbxozvq-MaXOBjzQ6JYUIbc
+```
+
+`redeploy` keeps the same address, so the site doesn't need changing. Signing in with codes is for testing. Google sign-in can replace it before match day.
+
+---
+
 ## 2. Entering data: Sheet or Google Forms?
 
 **The Google Sheet is the main place for data. Forms are an optional helper for goals, cards and Man of the Match.**

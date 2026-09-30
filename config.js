@@ -19,6 +19,9 @@
 window.KYOGYERA_CONFIG = {
   SHEET_ID: '1BefNkXvEjbRwUV1JAbQOr6sDZjf9t4gXedznfMpqJIA',
 
+  // The sheet's Admin web service (tools/apps-script/Admin.gs), used by the Admin page to save changes.
+  ADMIN_API_URL: 'https://script.google.com/macros/s/AKfycbxxGdC5zpTpPfMRBSdTwvB3XYf4jvk2nZgLHd4X9VrYLMbxozvq-MaXOBjzQ6JYUIbc/exec',
+
   // Only if a tab in your sheet has a different name from the one on the right:
   // TAB_NAMES: { groupFixtures: 'Group Fixtures' },
   TAB_NAMES: {},

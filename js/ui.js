@@ -54,6 +54,11 @@ export function icon(name, cls = 'ic') {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 }
 
+// True when this phone has a valid Admin sign-in (see js/admin-api.js).
+export function adminSignedIn() {
+  try { const s = JSON.parse(localStorage.getItem('kyogyera:admin-session') || 'null'); return !!(s && s.exp > Date.now()); } catch (e) { return false; }
+}
+
 export const PAGES = [
   { id: 'home', href: 'index.html', label: 'Home', icon: 'home', desc: 'About the league, latest scores and where to go next.' },
   { id: 'matches', href: 'matches.html', label: 'Matches', icon: 'matches', desc: 'Every fixture and result — tap a match for goals, cards and stats.' },
@@ -90,6 +95,7 @@ export function mountShell(pageId) {
         <button type="button" class="topnav-more${TOPNAV.includes(pageId) ? '' : ' current'}" data-open-drawer aria-controls="drawer">More ${icon('more', 'ic ic-sm')}</button>
       </nav>
       <span class="live" id="live-status" role="status"><span class="dot"></span><span class="live-text">Loading…</span></span>
+      <a class="admin-btn${adminSignedIn() ? ' on' : ''}${pageId === 'admin' ? ' current' : ''}" href="${href('admin.html')}" title="${adminSignedIn() ? 'Signed in — open Admin' : 'Admin sign-in'}">Admin</a>
     </div>
     <div id="announce-bar"></div>`;
   page.before(header);
@@ -204,7 +210,7 @@ export function runPage(pageId, render) {
 
 function applyConfig(model) {
   renderAnnouncementBar(model);
-  adPass.set(model.ads);
+  if (currentPage !== 'admin') adPass.set(model.ads); // no adverts over the admin console
   renderFooterSponsors(model);
   const name = model.cfg.leaguename || 'Kyogyera League';
   const first = name.replace(/\s+league$/i, '');
