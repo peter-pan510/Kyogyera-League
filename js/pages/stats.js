@@ -1,4 +1,4 @@
-import { runPage, esc, pageHero, sectionHead, segTabs, crest, teamLink, matchCard, emptyCard, icon, plural } from '../ui.js';
+import { runPage, esc, pageHero, sectionHead, segTabs, crest, teamLink, matchCard, emptyCard, icon, plural, playerLink } from '../ui.js';
 import { barList, donut, donutLegend, columns, C } from '../charts.js';
 
 const VIEWS = [['players', 'Players'], ['teams', 'Teams'], ['tournament', 'Tournament']];
@@ -24,7 +24,7 @@ function draw() {
 
 /* ---------------------------------------------------------------- players */
 
-const playerWho = (p) => `<span class="team">${p.team ? crest(p.team) : ''}<span class="tn"><span class="tname">${esc(p.name)}</span><span class="tyears">${p.team ? esc(p.team.name) : '—'}</span></span></span>`;
+const playerWho = (p) => `<span class="team">${p.team ? crest(p.team) : ''}<span class="tn"><span class="tname">${playerLink(p)}</span><span class="tyears">${p.team ? esc(p.team.name) : '—'}</span></span></span>`;
 
 function leaderboard(id, title, list, value, { unit = '', note = '' } = {}) {
   const all = list.filter((p) => value(p) > 0).sort((a, b) => value(b) - value(a) || a.name.localeCompare(b.name));
@@ -104,7 +104,7 @@ function playerTable() {
   return `<div class="tbl-wrap hscroll"><table class="tbl tbl-sort">
     <thead><tr><th class="c-pos">#</th><th class="c-team">${sortBtn('players', 'name', 'Player')}</th><th class="c-wide">Team</th>
       ${PLAYER_COLS.map(([k, l, t]) => `<th title="${t}">${sortBtn('players', k, l)}</th>`).join('')}</tr></thead>
-    <tbody>${rows.map((p, i) => `<tr><td class="c-pos">${i + 1}</td><th scope="row" class="c-team"><span class="tname">${esc(p.name)}</span></th>
+    <tbody>${rows.map((p, i) => `<tr><td class="c-pos">${i + 1}</td><th scope="row" class="c-team"><span class="tname">${playerLink(p)}</span></th>
       <td class="c-wide">${p.team ? teamLink(p.team, { years: false }) : '—'}</td>
       ${PLAYER_COLS.map(([k]) => `<td class="${k === s.key ? 'sorted' : ''}">${val(p, k)}</td>`).join('')}</tr>`).join('')}</tbody>
   </table></div>`;

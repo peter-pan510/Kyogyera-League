@@ -1,4 +1,4 @@
-import { runPage, esc, pageHero, segTabs, matchesByDay, emptyCard, param } from '../ui.js';
+import { runPage, esc, pageHero, segTabs, matchesByDay, emptyCard, param, getMyTeam } from '../ui.js';
 import { chronoCmp } from '../model.js';
 
 const VIEWS = ['schedule', 'results', 'fixtures'];
@@ -14,7 +14,8 @@ runPage('matches', (m, page) => {
 });
 
 function draw() {
-  const stages = [['ALL', 'All']].concat(model.groups.map((g) => [g.id, 'Group ' + g.id]), [['KO', 'Knockouts']]);
+  const mine = getMyTeam();
+  const stages = [['ALL', 'All']].concat(mine ? [['MINE', '★ My team']] : [], model.groups.map((g) => [g.id, 'Group ' + g.id]), [['KO', 'Knockouts']]);
   if (!stages.some(([id]) => id === state.stage)) state.stage = 'ALL';
   const teams = [...model.teamList].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -35,6 +36,7 @@ function draw() {
   let list = state.view === 'schedule' ? [...model.matches]
     : model.matches.filter((m) => (state.view === 'results' ? m.played : !m.played));
   if (state.stage === 'KO') list = list.filter((m) => m.stage === 'ko');
+  else if (state.stage === 'MINE') list = list.filter((m) => (m.home && m.home.key === mine) || (m.away && m.away.key === mine));
   else if (state.stage !== 'ALL') list = list.filter((m) => m.group === state.stage);
   if (state.team) list = list.filter((m) => (m.home && m.home.key === state.team) || (m.away && m.away.key === state.team));
   list.sort(state.view === 'results' ? (a, b) => chronoCmp(b, a) : chronoCmp);

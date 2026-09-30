@@ -1,4 +1,4 @@
-import { runPage, esc, href, param, crest, teamColor, stageBadge, formDots, standingsTable, matchesByDay, sectionHead, emptyCard, icon, plural, photoGrid } from '../ui.js';
+import { runPage, esc, href, param, crest, teamColor, stageBadge, formDots, standingsTable, matchesByDay, sectionHead, emptyCard, icon, plural, photoGrid, playerLink, getMyTeam, setMyTeam } from '../ui.js';
 import { wdlDonut, barList, compareRow } from '../charts.js';
 
 runPage('teams', (model, page) => {
@@ -27,7 +27,7 @@ runPage('teams', (model, page) => {
     return compareRow(c.label + (c.unit === '%' ? '' : ' per match'), mine, cnt ? tot / cnt : 0, { unit: c.unit, lowerIsBetter: c.key === 'fouls' || c.key === 'offsides' });
   }).join('');
 
-  const who = (p, v) => ({ html: `<span class="tname">${esc(p.name)}</span>`, value: v });
+  const who = (p, v) => ({ html: `<span class="tname">${playerLink(p)}</span>`, value: v });
 
   page.innerHTML = `
   <section class="team-hero" style="--c:${esc(teamColor(t))}">
@@ -39,6 +39,7 @@ runPage('teams', (model, page) => {
           <p class="kicker">Group ${esc(t.group)} · Class of ${esc(t.years || '—')}</p>
           <h1>${esc(t.name)}</h1>
           <div class="th-badges">${stageBadge(t.stage)}${t.groupRow ? `<span class="badge">${ordinal(t.groupRow.pos)} in Group ${esc(t.group)}</span>` : ''}</div>
+          <button type="button" class="btn-mine${getMyTeam() === t.key ? ' on' : ''}" id="my-team">${getMyTeam() === t.key ? '★ My team' : '☆ Make this my team'}</button>
         </div>
       </div>
     </div>
@@ -74,12 +75,17 @@ runPage('teams', (model, page) => {
       </div>
     </section>` : ''}
 
+    ${t.suspendedNext && t.suspendedNext.length ? `<section class="section"><div class="card pad suspended">
+      <h3 class="a-h">⛔ Suspended for the next match</h3>
+      <ul>${t.suspendedNext.map((x) => `<li>${playerLink(x.player)} <span class="muted small">(red card in ${esc(x.from.id)})</span></li>`).join('')}</ul>
+    </div></section>` : ''}
+
     ${t.squad.length ? `
     <section class="section">
       ${sectionHead('Squad', plural(t.squad.length, 'player'))}
       <article class="card"><div class="tbl-wrap hscroll"><table class="tbl squad">
         <thead><tr><th class="c-pos">No.</th><th class="c-team">Player</th><th>Pos</th><th title="Goals">G</th><th title="Assists">A</th><th title="Man of the Match">MOTM</th><th title="Yellow cards">YC</th><th title="Red cards">RC</th></tr></thead>
-        <tbody>${t.squad.map((p) => `<tr><td class="c-pos">${esc(p.number || '–')}</td><th scope="row" class="c-team"><span class="tname">${esc(p.name)}</span></th>
+        <tbody>${t.squad.map((p) => `<tr><td class="c-pos">${esc(p.number || '–')}</td><th scope="row" class="c-team"><span class="tname">${playerLink(p)}</span></th>
           <td>${esc(p.position || '–')}</td><td>${p.goals}</td><td>${p.assists}</td><td>${p.motm}</td><td>${p.yellow}</td><td>${p.red}</td></tr>`).join('')}</tbody>
       </table></div></article>
     </section>` : ''}
@@ -101,6 +107,12 @@ runPage('teams', (model, page) => {
     ${upcoming.length ? `<section class="section">${sectionHead('Next matches')}${matchesByDay(upcoming, model)}</section>` : ''}
     <section class="section">${sectionHead('Results')}${played.length ? matchesByDay(played, model) : emptyCard('No matches played yet.')}</section>
   </div>`;
+  page.querySelector('#my-team').onclick = (ev) => {
+    const on = getMyTeam() !== t.key;
+    setMyTeam(on ? t.key : '');
+    ev.target.classList.toggle('on', on);
+    ev.target.textContent = on ? '★ My team' : '☆ Make this my team';
+  };
 });
 
 function tile(v, label) {

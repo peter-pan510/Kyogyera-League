@@ -23,8 +23,12 @@ const KL = {
   TAB_ROLES: {
     Announcements: ['admin'], Sponsors: ['admin'], Ads: ['admin'], Config: ['admin'], Info: ['admin'], Photos: ['admin'],
     Goals: ['admin'], Cards: ['admin'], MatchStats: ['admin'],
+    History: ['admin'],
     Teams: ['admin', 'editor'], Players: ['admin', 'editor'], GroupFixtures: ['admin', 'editor'], KnockoutFixtures: ['admin', 'editor'],
   },
+  // Tabs/columns the admin service creates by itself if they are missing.
+  AUTO_TABS: { History: ['Season', 'Year', 'Champion', 'RunnerUp', 'TopScorer', 'MOTMKing', 'Notes'] },
+  AUTO_COLS: { GroupFixtures: ['KickoffAt', 'SecondHalfAt'], KnockoutFixtures: ['KickoffAt', 'SecondHalfAt'], Players: ['Photo'] },
   MATCH_ROLES: ['admin', 'ref'],
   FIXTURE_ROLES: ['admin', 'editor'],
   STATS: ['Possession', 'Shots', 'ShotsOnTarget', 'Corners', 'Fouls', 'Offsides', 'Saves'],
@@ -58,6 +62,19 @@ function klHandle(req) {
   const need = (roles) => { if (roles.indexOf(who.role) < 0) throw new Error('Your code is not allowed to do that.'); };
   const tabOk = (tab) => { const r = KL.TAB_ROLES[tab]; if (!r) throw new Error('Unknown tab "' + tab + '".'); need(r); };
   const withState = (out) => Object.assign(out || {}, { state: klMatchState(req.matchId) });
+  // A phone that lost signal may send the same change again; each change carries an id and is applied once.
+  if (req.opId && /^(setStatus|setScore|addGoal|removeGoal|addCard|removeCard|stat|setMotm|setNote)$/.test(a)) {
+    const seen = CacheService.getScriptCache().get('op:' + req.opId);
+    if (seen) { need(KL.MATCH_ROLES); return { duplicate: true, state: klMatchState(req.matchId) }; }
+    const out = klHandleOp(a, req, who, withState, need);
+    CacheService.getScriptCache().put('op:' + req.opId, '1', 21600);
+    return out;
+  }
+  return klHandleOp(a, req, who, withState, need, tabOk);
+}
+
+function klHandleOp(a, req, who, withState, need, tabOk) {
+  tabOk = tabOk || ((tab) => { const r = KL.TAB_ROLES[tab]; if (!r) throw new Error('Unknown tab "' + tab + '".'); need(r); });
 
   switch (a) {
     case 'whoami': return { name: who.name, role: who.role };
@@ -95,6 +112,7 @@ function klHandle(req) {
     case 'resetCode': need(['admin']); return klWrite(who, () => klResetCode(req.id), 'Reset a code');
     case 'removeCode': need(['admin']); return klWrite(who, () => klRemoveCode(req.id, who), 'Removed a code');
     case 'log': need(['admin']); return klLogRows();
+    case 'resetResults': need(['admin']); return klWrite(who, () => klResetResults(req.clearKnockoutTeams), 'RESET all match results' + (req.clearKnockoutTeams ? ' (and knockout teams)' : ''));
     default: throw new Error('Unknown action.');
   }
 }
@@ -222,8 +240,24 @@ function klSS() {
 }
 
 function klSheet(tab) {
-  const sh = klSS().getSheetByName(tab);
+  let sh = klSS().getSheetByName(tab);
+  if (!sh && KL.AUTO_TABS[tab]) {
+    sh = klSS().insertSheet(tab);
+    sh.getRange(1, 1, 1, KL.AUTO_TABS[tab].length).setValues([KL.AUTO_TABS[tab]]);
+    sh.setFrozenRows(1);
+    if (tab === 'History') sh.appendRow(['Season 1', '2026', '', '', '', '', 'The first Kyogyera League. Add the champions and award winners here.']);
+  }
   if (!sh) throw new Error('The sheet has no "' + tab + '" tab — run Kyogyera → 1. Set up tabs & dropdowns.');
+  const need = KL.AUTO_COLS[tab];
+  if (need) {
+    const head = klHead(sh);
+    const missing = need.filter((c) => head.indexOf(c) < 0);
+    if (missing.length) {
+      const start = head.filter(String).length + 1;
+      sh.getRange(1, start, 1, missing.length).setValues([missing]);
+      sh.getRange(2, start, Math.max(sh.getMaxRows() - 1, 1), missing.length).setNumberFormat('@');
+    }
+  }
   return sh;
 }
 
@@ -290,7 +324,7 @@ const klPerson = (n) => String(n || '').toUpperCase().replace(/[^A-Z0-9' ]/g, ' 
 function klFindMatch(matchId) {
   const id = String(matchId || '').toUpperCase().trim();
   for (const tab of ['GroupFixtures', 'KnockoutFixtures']) {
-    const sh = klSheet(tab);
+    const sh = klSheet(tab); // also adds the clock columns if missing
     const head = klHead(sh);
     const c = head.indexOf('MatchID');
     const last = sh.getLastRow();
@@ -353,11 +387,14 @@ function klMatchState(matchId) {
       id: v.MatchID, tab: m.tab, stage: m.tab === 'GroupFixtures' ? 'Group ' + v.Group : (v.Slot || v.Round),
       home: klShort(v.TeamHome), away: klShort(v.TeamAway), hs: v.ScoreHome, as: v.ScoreAway, status: v.Status, time: v.Date,
       note: v.Note || '', motm: v.MOTM || '', motmTeam: v.MOTMTeam || '', row: m.row, raw: m.head.map((h) => v[h]),
+      kickoffAt: v.KickoffAt || '', secondHalfAt: v.SecondHalfAt || '', halfMinutes: Number(klConfig('HalfMinutes')) || 10,
     },
     goals: mine('Goals').map((r) => ({ row: r._row, before: r._raw, side: sideOf(r.values.Team), team: r.values.Team, scorer: r.values.Scorer, assist: r.values.Assist, minute: r.values.Minute, type: r.values.Type })),
     cards: mine('Cards').map((r) => ({ row: r._row, before: r._raw, side: sideOf(r.values.Team), team: r.values.Team, player: r.values.Player, card: r.values.Card, minute: r.values.Minute })),
     stats,
     squads: { home: squadOf(v.TeamHome), away: squadOf(v.TeamAway) },
+    earlierCards: klList('Cards').rows.filter((r) => String(r.values.MatchID).toUpperCase() !== id && (klKey(r.values.Team) === homeK || klKey(r.values.Team) === awayK))
+      .map((r) => ({ matchId: r.values.MatchID, team: r.values.Team, player: r.values.Player, card: r.values.Card })),
   };
 }
 
@@ -370,7 +407,14 @@ function klSetStatus(matchId, status) {
   const m = klFindMatch(matchId);
   if (!m.v.TeamHome || !m.v.TeamAway) throw new Error('This match has no teams yet.');
   const c = klScoreCols(m);
+  const prev = m.v.Status || '';
   m.sh.getRange(m.row, c.s).setValue(status);
+  // Match clock: kick-off and second-half start times (text, so the sheet never reformats them).
+  const nowIso = new Date().toISOString();
+  const setTime = (col, val) => { const i = m.head.indexOf(col); if (i >= 0) m.sh.getRange(m.row, i + 1).setNumberFormat('@').setValue(val); };
+  if (status === 'Live' && prev === '') setTime('KickoffAt', nowIso);
+  if (status === 'Live' && prev === 'HT') setTime('SecondHalfAt', nowIso);
+  if (status === '') { setTime('KickoffAt', ''); setTime('SecondHalfAt', ''); }
   if (status && m.v.ScoreHome === '' && m.v.ScoreAway === '') {
     m.sh.getRange(m.row, c.h).setValue(0);
     m.sh.getRange(m.row, c.a).setValue(0);
@@ -638,4 +682,29 @@ function klKoDraw(pairs) {
     sh.getRange(r._row, head.indexOf('TeamAway') + 1).setValue(pairs[i][1]);
   });
   return { quarterfinals: rows.length };
+}
+
+/* ============================================================ config/reset */
+
+function klConfig(key) {
+  const r = klList('Config').rows.find((x) => String(x.values.Key).toLowerCase() === String(key).toLowerCase());
+  return r ? r.values.Value : '';
+}
+
+/** Admin: clear every result so the tournament can start fresh (e.g. after a rehearsal). */
+function klResetResults(clearKnockoutTeams) {
+  ['GroupFixtures', 'KnockoutFixtures'].forEach((tab) => {
+    const sh = klSheet(tab);
+    const head = klHead(sh);
+    const last = sh.getLastRow();
+    if (last < 2) return;
+    const cols = ['ScoreHome', 'ScoreAway', 'Status', 'MOTM', 'MOTMTeam', 'Note', 'KickoffAt', 'SecondHalfAt']
+      .concat(tab === 'KnockoutFixtures' && clearKnockoutTeams ? ['TeamHome', 'TeamAway'] : []);
+    cols.forEach((c) => { const i = head.indexOf(c); if (i >= 0) sh.getRange(2, i + 1, last - 1, 1).clearContent(); });
+  });
+  ['Goals', 'Cards', 'MatchStats', 'GoalsForm', 'CardsForm', 'MOTMForm'].forEach((tab) => {
+    const sh = klSS().getSheetByName(tab);
+    if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(sh.getLastColumn(), 1)).clearContent();
+  });
+  return { reset: true };
 }

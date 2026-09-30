@@ -1,4 +1,5 @@
-import { runPage, esc, href, param, crest, fmtDate, kickoff, stageLabel, placeholderFor, standingsTable, sectionHead, emptyCard, icon, teamColor, photoGrid } from '../ui.js';
+import { runPage, esc, href, param, crest, fmtDate, kickoff, stageLabel, placeholderFor, standingsTable, sectionHead, emptyCard, icon, teamColor, photoGrid, playerLink, clockLabel } from '../ui.js';
+import { matchCardImage, shareCanvas } from '../share.js';
 import { chronoCmp, predict } from '../model.js';
 import { compareRow, donut, donutLegend, C } from '../charts.js';
 
@@ -18,7 +19,7 @@ runPage('matches', (model, page) => {
     return t && t.group ? `<a class="sb-team" href="${href('team.html', { t: t.slug })}">${inner}</a>` : `<div class="sb-team">${inner}</div>`;
   };
   const goalsFor = (s) => m.goals.filter((g) => g.side === s).map((g) =>
-    `<li>${esc(g.scorer ? g.scorer.name : 'Goal')}${g.type === 'OG' ? ' (OG)' : g.type === 'PEN' ? ' (P)' : ''} <span>${g.minute ? g.minute.label : ''}</span></li>`).join('');
+    `<li>${g.scorer ? playerLink(g.scorer) : 'Goal'}${g.type === 'OG' ? ' (OG)' : g.type === 'PEN' ? ' (P)' : ''} <span>${g.minute ? g.minute.label : ''}</span></li>`).join('');
 
   const time = m.date && m.date.time ? m.date.d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'TBC';
   const ordered = [...model.matches].sort(chronoCmp);
@@ -33,7 +34,7 @@ runPage('matches', (model, page) => {
       <div class="sb-main">
         ${side('home')}
         <div class="sb-center">
-          ${m.played ? `<div class="sb-score">${m.hs}<i>–</i>${m.as}</div>${m.live ? `<span class="badge badge-livenow"><i class="live-dot"></i>${m.status === 'HT' ? 'Half time' : 'Live'}</span>` : '<span class="badge">Full time</span>'}`
+          ${m.played ? `<div class="sb-score">${m.hs}<i>–</i>${m.as}</div>${m.live ? `<span class="badge badge-livenow" data-clock data-k="${m.kickoffAt || ''}" data-s="${m.secondHalfAt || ''}" data-st="${esc(m.status)}"><i class="live-dot"></i><span class="clock-t">${m.status === 'HT' ? 'Half time' : clockLabel(m.kickoffAt, m.secondHalfAt, model.halfMinutes, m.status)}</span></span>` : '<span class="badge">Full time</span>'}`
             : `<div class="sb-time">${esc(time)}</div><span class="badge badge-live">Upcoming</span>`}
         </div>
         ${side('away')}
@@ -47,7 +48,14 @@ runPage('matches', (model, page) => {
   <div class="wrap">
     ${m.motm ? `<section class="section"><div class="motm">
       <span class="motm-ic">${icon('star')}</span>
-      <div><small>Man of the Match</small><b>${esc(m.motm.name)}</b>${m.motm.team ? `<span>${esc(m.motm.team.name)}</span>` : ''}</div>
+      <div><small>Man of the Match</small><b>${playerLink(m.motm)}</b>${m.motm.team ? `<span>${esc(m.motm.team.name)}</span>` : ''}</div>
+    </div></section>` : ''}
+
+    ${H && A ? `<section class="section share-row"><button type="button" class="btn" id="share-match">${icon('arrow', 'ic ic-sm')} Share ${m.played ? 'result' : 'match'} on WhatsApp</button></section>` : ''}
+
+    ${m.suspended && m.suspended.length && !m.finished ? `<section class="section"><div class="card pad suspended">
+      <h3 class="a-h">⛔ Suspended for this match</h3>
+      <ul>${m.suspended.map((x) => `<li>${playerLink(x.player)} <span class="muted small">(${esc(x.team.name)} · red card in ${esc(x.from.id)})</span></li>`).join('')}</ul>
     </div></section>` : ''}
 
     ${m.played ? timeline(m) : ''}
@@ -67,6 +75,18 @@ runPage('matches', (model, page) => {
       ${next ? `<a class="nx" href="${href('match.html', { id: next.id })}"><span><small>Next match</small>${esc(short(next, model))}</span>${icon('arrow', 'ic ic-sm')}</a>` : '<span></span>'}
     </nav>
   </div>`;
+  const sb = page.querySelector('#share-match');
+  if (sb) sb.onclick = async () => {
+    sb.disabled = true;
+    const label = sb.innerHTML;
+    sb.textContent = 'Making the picture…';
+    try {
+      const canvas = await matchCardImage(m, model);
+      const how = await shareCanvas(canvas, `kyogyera-${m.id}.png`, `${H.name} ${m.played ? m.hs + '–' + m.as : 'v'} ${A.name} · Kyogyera League ${location.href}`);
+      sb.textContent = how === 'downloaded' ? 'Picture saved — share it from your photos' : how === 'shared' ? 'Shared ✓' : label;
+    } catch (e) { sb.textContent = 'Could not make the picture'; }
+    setTimeout(() => { sb.innerHTML = label; sb.disabled = false; }, 3000);
+  };
 });
 
 function short(m, model) {
@@ -76,8 +96,8 @@ function short(m, model) {
 
 function timeline(m) {
   const events = [
-    ...m.goals.map((g) => ({ minute: g.minute, side: g.side, html: `${icon('ball', 'ic ic-sm')}<span><b>${esc(g.scorer ? g.scorer.name : 'Goal')}</b>${g.type === 'PEN' ? ' <em>(penalty)</em>' : g.type === 'OG' ? ' <em>(own goal)</em>' : ''}${g.assist ? `<small>Assist: ${esc(g.assist.name)}</small>` : ''}</span>` })),
-    ...m.cards.map((c) => ({ minute: c.minute, side: c.side, html: `<span class="card-ic ${c.card === 'R' ? 'red' : 'yellow'}" aria-label="${c.card === 'R' ? 'Red' : 'Yellow'} card"></span><span><b>${esc(c.player ? c.player.name : 'Player')}</b><small>${c.card === 'R' ? 'Red card' : 'Yellow card'}</small></span>` })),
+    ...m.goals.map((g) => ({ minute: g.minute, side: g.side, html: `${icon('ball', 'ic ic-sm')}<span><b>${g.scorer ? playerLink(g.scorer) : 'Goal'}</b>${g.type === 'PEN' ? ' <em>(penalty)</em>' : g.type === 'OG' ? ' <em>(own goal)</em>' : ''}${g.assist ? `<small>Assist: ${playerLink(g.assist)}</small>` : ''}</span>` })),
+    ...m.cards.map((c) => ({ minute: c.minute, side: c.side, html: `<span class="card-ic ${c.card === 'R' ? 'red' : 'yellow'}" aria-label="${c.card === 'R' ? 'Red' : 'Yellow'} card"></span><span><b>${c.player ? playerLink(c.player) : 'Player'}</b><small>${c.card === 'R' ? 'Red card' : 'Yellow card'}</small></span>` })),
   ].sort((a, b) => (a.minute ? a.minute.sort : 999) - (b.minute ? b.minute.sort : 999));
   if (!events.length) return '';
   return `<section class="section">${sectionHead('Match events')}

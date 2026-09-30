@@ -3,14 +3,14 @@
  *   straight away; if the signal is gone or too slow, the saved copy is used.
  * - Fonts and images: saved copy first (they rarely change).
  * - Score sheet data is never cached here — the pages keep their own saved copy. */
-const CACHE = 'kyogyera-v10';
+const CACHE = 'kyogyera-v11';
 const SHELL = [
   './', 'index.html', 'matches.html', 'groups.html', 'table.html', 'knockout.html', 'stats.html',
-  'teams.html', 'team.html', 'match.html', 'gallery.html', 'info.html', 'admin.html',
+  'teams.html', 'team.html', 'match.html', 'gallery.html', 'info.html', 'admin.html', 'player.html', 'awards.html', 'history.html',
   'styles.css', 'config.js', 'manifest.webmanifest',
   'js/data.js', 'js/model.js', 'js/ui.js', 'js/charts.js', 'js/admin-api.js',
   'js/pages/home.js', 'js/pages/matches.js', 'js/pages/groups.js', 'js/pages/table.js', 'js/pages/knockout.js',
-  'js/pages/stats.js', 'js/pages/teams.js', 'js/pages/team.js', 'js/pages/match.js', 'js/pages/gallery.js', 'js/pages/info.js', 'js/pages/admin.js',
+  'js/pages/stats.js', 'js/pages/teams.js', 'js/pages/team.js', 'js/pages/match.js', 'js/pages/gallery.js', 'js/pages/info.js', 'js/pages/admin.js', 'js/pages/player.js', 'js/pages/awards.js', 'js/pages/history.js', 'js/share.js',
   'assets/kyogyera-badge-256.webp', 'assets/kyogyera-badge-400.webp', 'assets/favicon-64.png',
 ];
 const NETWORK_TIMEOUT_MS = 4000;

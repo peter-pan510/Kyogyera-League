@@ -268,6 +268,7 @@ export function buildModel(t) {
       id: r.matchid || `G${g}${i + 1}`, stage: 'group', group: g, round: 'GROUP', slot: '',
       home, away, hs: parseScore(r.scorehome), as: parseScore(r.scoreaway),
       dateRaw: r.date || '', date: parseDate(r.date, matchDay), note: r.note || '', statusRaw: r.status || '',
+      kickoffAt: Date.parse(r.kickoffat || '') || null, secondHalfAt: Date.parse(r.secondhalfat || '') || null,
       motmRaw: r.motm || r.manofthematch || '', motmTeamRaw: r.motmteam || '',
     });
     if ((m.hs == null) !== (m.as == null)) issues.push(`${m.id}: only one of ScoreHome/ScoreAway is filled in.`);
@@ -281,6 +282,7 @@ export function buildModel(t) {
       home: r.teamhome ? teamRef(r.teamhome) : null, away: r.teamaway ? teamRef(r.teamaway) : null,
       hs: parseScore(r.scorehome), as: parseScore(r.scoreaway),
       dateRaw: r.date || '', date: parseDate(r.date, matchDay), note: r.note || '', statusRaw: r.status || '',
+      kickoffAt: Date.parse(r.kickoffat || '') || null, secondHalfAt: Date.parse(r.secondhalfat || '') || null,
       motmRaw: r.motm || r.manofthematch || '', motmTeamRaw: r.motmteam || '',
     });
     for (const side of ['home', 'away']) {
@@ -301,7 +303,7 @@ export function buildModel(t) {
     if (!name) return;
     const team = teams.get(teamKey(r.team));
     if (!team) { issues.push(`Players row ${i + 2}: team "${r.team}" is not in the Teams tab.`); return; }
-    roster.set(team.key + '|' + personKey(name), { name: name.trim().replace(/\s+/g, ' '), number: r.number || r.no || '', position: r.position || '' });
+    roster.set(team.key + '|' + personKey(name), { name: name.trim().replace(/\s+/g, ' '), number: r.number || r.no || '', position: r.position || '', photo: r.photo || '' });
     rosterTeams.add(team.key);
   });
 
@@ -316,6 +318,8 @@ export function buildModel(t) {
       const sq = roster.get(key);
       p = {
         key, name: sq ? sq.name : String(name).trim().replace(/\s+/g, ' '), team, number: sq ? sq.number : '', position: sq ? sq.position : '',
+        photo: sq && sq.photo ? imageUrl(sq.photo, 600) : '', events: [],
+        slug: ((team ? team.slug : 'x') + '--' + pk.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-|-$/g, ''),
         inSquad: !!sq, goals: 0, pens: 0, ownGoals: 0, assists: 0, motm: 0, yellow: 0, red: 0, matchIds: new Set(),
       };
       players.set(key, p);
@@ -372,6 +376,8 @@ export function buildModel(t) {
     const assist = type !== 'OG' && r.assist ? playerRef(r.assist, m[side], where) : null;
     const g = { match: m, side, team: m[side], scorer, assist, type, minute: parseMinute(r.minute) };
     m.goals.push(g);
+    if (scorer) scorer.events.push({ kind: type === 'OG' ? 'og' : 'goal', match: m, minute: g.minute, type });
+    if (assist) assist.events.push({ kind: 'assist', match: m, minute: g.minute });
     if (scorer) {
       scorer.matchIds.add(m.id);
       if (type === 'OG') scorer.ownGoals++; else scorer.goals++;
@@ -393,6 +399,7 @@ export function buildModel(t) {
     const card = /red|^r$|2nd|second/i.test(r.card || '') ? 'R' : 'Y';
     const player = playerRef(r.player, m[side], where);
     m.cards.push({ match: m, side, team: m[side], player, card, minute: parseMinute(r.minute) });
+    if (player) player.events.push({ kind: card === 'R' ? 'red' : 'yellow', match: m, minute: parseMinute(r.minute) });
     if (player) { player.matchIds.add(m.id); if (card === 'R') player.red++; else player.yellow++; }
   });
 
@@ -441,7 +448,7 @@ export function buildModel(t) {
         team = [m.home, m.away].find((tm) => players.has(tm.key + '|' + pk)) || null;
       }
       const p = playerRef(m.motmRaw, team, `${m.id} Man of the Match`);
-      if (p) { p.motm++; p.matchIds.add(m.id); m.motm = p; }
+      if (p) { p.motm++; p.matchIds.add(m.id); m.motm = p; p.events.push({ kind: 'motm', match: m }); }
     }
   });
 
@@ -500,6 +507,27 @@ export function buildModel(t) {
   });
   const content = buildContent(t, lookupMatch, teams);
 
+  // Red card → the player misses the team's next RedCardBan match(es).
+  const redBan = cfg.redcardban === '' || cfg.redcardban == null ? 1 : Math.max(0, parseInt(cfg.redcardban, 10) || 0);
+  matches.forEach((m) => { m.suspended = []; });
+  teamList.forEach((tm) => {
+    const games = chrono.filter((m) => m.home === tm || m.away === tm);
+    games.forEach((m, i) => {
+      if (!m.finished) return;
+      m.cards.filter((c) => c.card === 'R' && c.team === tm && c.player).forEach((c) => {
+        games.slice(i + 1, i + 1 + redBan).forEach((later) => later.suspended.push({ player: c.player, team: tm, from: m }));
+      });
+    });
+    const next = games.find((m) => !m.finished);
+    tm.suspendedNext = next ? next.suspended.filter((x) => x.team === tm) : [];
+  });
+
+  const history = t.history.rows.filter((r) => r.season || r.year).map((r) => ({
+    season: r.season || '', year: r.year || '', champion: r.champion || '', runnerUp: r.runnerup || '',
+    topScorer: r.topscorer || '', motmKing: r.motmking || '', notes: r.notes || '',
+  }));
+  const halfMinutes = Math.max(1, parseInt(cfg.halfminutes, 10) || 10);
+
   // One-day tournament? (every dated match on the same calendar day)
   const days = new Set(matches.filter((m) => m.date && !m.date.noDay).map((m) => m.date.d.toDateString()));
   const oneDay = days.size <= 1 && matches.some((m) => m.date);
@@ -513,6 +541,8 @@ export function buildModel(t) {
     oneDay, matchDay: matchDay || (firstKick ? firstKick.date : null), firstKick, liveMatches, upcoming,
     players: playerList, statColumns, tournament: tournamentTotals(matches, teamList, playerList),
     ...content,
+    history, halfMinutes, redBan,
+    playerBySlug: (slug) => playerList.find((p) => p.slug === slug) || null,
     issues: [...new Set(issues)],
     teamBySlug: (slug) => teamList.find((tm) => tm.slug === slug) || null,
     match: (id) => matchById.get(normId(id)) || null,

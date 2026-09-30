@@ -16,6 +16,9 @@ A website for the **Kyogyera League**, the OBs & OGs football tournament played 
 | **Matches** `matches.html` | The day's running order (Group stage → QF → SF → Final), results and upcoming. Filter by group or team |
 | **Match centre** `match.html?id=GA1` | Scoreboard, LIVE/HT/FT, goals, timeline, Man of the Match, stat bars, photos, a "Who will win?" pie chart |
 | **Groups** `groups.html` | Group tables (live during matches) and the race for the best 3rd place |
+| **Awards** `awards.html` | Champions, Golden Boot, top assists, Man of the Match king, best attack/defence, fair play. Filled in automatically, each with a WhatsApp share card |
+| **History** `history.html` | Past seasons from the **History** tab (Season, Year, Champion, RunnerUp, TopScorer, MOTMKing, Notes) plus older photos |
+| **Player** `player.html?p=…` | Every player: goals, assists, cards, Man of the Match, match by match. Tap any player's name anywhere |
 | **Kyogyera Table** `table.html` | All 11 teams in one table, with form, PPG and how far each got |
 | **Knockouts** `knockout.html` | Qualified teams and the bracket QF → SF → Final → Champion |
 | **Stats** `stats.html` | Golden Boot, assists, Man of the Match, cards, a full player table, team rankings, tournament charts |
@@ -117,6 +120,14 @@ The gold **ADMIN** button at the top of every page opens a sign-in screen. Witho
 
 **The match console reacts instantly.** Taps show on screen straight away and are saved to the sheet in the background, in order ("Saving…" shows meanwhile). If a save fails, the console reloads the match and shows what went wrong.
 
+**Weak signal:** changes made with no signal are kept on the referee's phone ("📶 No signal · 3 changes waiting") and sent automatically when the signal returns. That still works if the page is closed and reopened offline, because the console remembers the last match it showed. Every change carries an id, so one that reached Google before the signal dropped is never saved twice.
+
+**Match clock:** **Kick off** records the start time, and **Second half** records the start of the second half. Everyone on the site then sees the live minute ("34'", "10+2'"), and the referee's goal and card forms fill the minute in automatically. The length of each half is the `HalfMinutes` setting (default 10).
+
+**Discipline:** the referee's player lists show 🟨 (booked in this match), earlier yellows and ⛔ (suspended). A second yellow in a match offers to save it as a red card. A red card rules the player out of the team's next `RedCardBan` match(es) (default 1). That's shown on the team page, the match page and in the console.
+
+**Reset after a rehearsal (admin):** Info & settings → *Reset all results* (type RESET). It clears every score, status, clock, Man of the Match, goal, card and stat. Teams, players, fixtures, times, photos and settings stay.
+
 **Draws (Fixtures & draw tab):**
 
 - **Group draw:** randomly reshuffles the 11 teams into groups A/B/C (4/4/3). It rebuilds all 15 group fixtures with the same kick-off times, every pair playing once and no team playing twice in a row. It's only possible before any group match starts.
@@ -189,6 +200,12 @@ Answers appear on the site within about a minute.
    Then commit and push again.
 
 Preview with made-up data by adding `?demo` to any page address. To test on your computer, run `python3 -m http.server` in this folder and open http://localhost:8000. Opening the HTML file directly doesn't work.
+
+**For fans:**
+
+- **Goal alerts:** a banner and a phone buzz when a goal goes in or a match ends, while the site is open. Mute or unmute it from the **My team** card on Home.
+- **My team:** pick it on Home or on a team page. It's then highlighted in every table and match list, gets its own card on Home, and adds a *My team* filter on Matches.
+- **Share cards:** *Share on WhatsApp* on every match (and every award) makes a picture of the score, scorers and Man of the Match.
 
 **Add to home screen:** in Chrome, tap ⋮ → *Add to Home screen* (on iPhone: Share → *Add to Home Screen*). The site then opens like an app, with the badge as its icon. After the first visit it keeps working on a weak signal. If the connection drops it shows the last scores it saved and says "Offline".
 

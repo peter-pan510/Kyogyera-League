@@ -73,7 +73,9 @@ const STARTER = {"Teams": [
     ["LastUpdated","Fixtures published — match day is Saturday 20 March 2027"],
     ["About","The Kyogyera League brings old boys and old girls back home for the biggest reunion on the calendar. After a brilliant first season in 2026, Season 2 is here: eleven OB/OG teams, each built from a different set of school years, battle it out at Kitabuguma Playground for bragging rights and the Kyogyera trophy."],
     ["MapQuery","Bishop McAllister College Kyogyera, Sheema"],
-    ["Directions",""]],
+    ["Directions",""],
+    ["HalfMinutes","10"],
+    ["RedCardBan","1"]],
   "Info": [
     ["Section","Title","Body","Link"],
     ["Rules","Match length","To be confirmed by the organising committee.",""],
@@ -119,14 +121,17 @@ const STARTER = {"Teams": [
     ["sn1-32.jpg","VIP","","","","Season 1 · 2026"]],
   "Ads": [
     ["Message","Call","WhatsApp","Link","Active"],
-    ["DO YOU WANT ANY DESIGNS, IN ALL FORMS AND STYLES? REACH OUT TO PETERSON — CALL 0781 464 585 OR WHATSAPP 0707 488 457","0781464585","0707488457","","yes"]]};
+    ["DO YOU WANT ANY DESIGNS, IN ALL FORMS AND STYLES? REACH OUT TO PETERSON — CALL 0781 464 585 OR WHATSAPP 0707 488 457","0781464585","0707488457","","yes"]],
+  "History": [
+    ["Season","Year","Champion","RunnerUp","TopScorer","MOTMKing","Notes"],
+    ["Season 1","2026","","","","","The first Kyogyera League. Add the champions and award winners here."]]};
 
 const TAB_HEADERS = {
   Teams: ['TeamName', 'Group', 'Badge', 'Short'],
-  GroupFixtures: ['MatchID', 'Group', 'TeamHome', 'TeamAway', 'ScoreHome', 'ScoreAway', 'Date', 'Status', 'MOTM', 'MOTMTeam'],
-  KnockoutFixtures: ['MatchID', 'Round', 'Slot', 'TeamHome', 'TeamAway', 'ScoreHome', 'ScoreAway', 'Date', 'Status', 'Note', 'MOTM', 'MOTMTeam'],
+  GroupFixtures: ['MatchID', 'Group', 'TeamHome', 'TeamAway', 'ScoreHome', 'ScoreAway', 'Date', 'Status', 'MOTM', 'MOTMTeam', 'KickoffAt', 'SecondHalfAt'],
+  KnockoutFixtures: ['MatchID', 'Round', 'Slot', 'TeamHome', 'TeamAway', 'ScoreHome', 'ScoreAway', 'Date', 'Status', 'Note', 'MOTM', 'MOTMTeam', 'KickoffAt', 'SecondHalfAt'],
   Config: ['Key', 'Value'],
-  Players: ['Team', 'Player', 'Number', 'Position'],
+  Players: ['Team', 'Player', 'Number', 'Position', 'Photo'],
   Goals: ['MatchID', 'Team', 'Scorer', 'Assist', 'Minute', 'Type'],
   Cards: ['MatchID', 'Team', 'Player', 'Card', 'Minute'],
   MatchStats: ['MatchID', 'Team', 'Possession', 'Shots', 'ShotsOnTarget', 'Corners', 'Fouls', 'Offsides', 'Saves'],
@@ -135,11 +140,12 @@ const TAB_HEADERS = {
   Photos: ['Url', 'Caption', 'MatchID', 'Team', 'Credit', 'Season'],
   Sponsors: ['Name', 'Logo', 'Url', 'Tier'],
   Ads: ['Message', 'Call', 'WhatsApp', 'Link', 'Active'],
+  History: ['Season', 'Year', 'Champion', 'RunnerUp', 'TopScorer', 'MOTMKing', 'Notes'],
 };
 
 // Columns kept as plain text so Google's live CSV link never drops them.
 const TEXT_COLUMNS = {
-  GroupFixtures: ['MatchID', 'Date'], KnockoutFixtures: ['MatchID', 'Date'], Config: ['Value'],
+  GroupFixtures: ['MatchID', 'Date', 'KickoffAt', 'SecondHalfAt'], KnockoutFixtures: ['MatchID', 'Date', 'KickoffAt', 'SecondHalfAt'], Config: ['Value'],
   Goals: ['MatchID', 'Minute'], Cards: ['MatchID', 'Minute'], MatchStats: ['MatchID'],
   Announcements: ['Time'], Players: ['Number'], Photos: ['MatchID'],
   Ads: ['Call', 'WhatsApp'], // keeps the leading 0 of phone numbers

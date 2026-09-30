@@ -1,9 +1,9 @@
 /* Admin page: sign in with a code, then update the sheet from the site.
  * What each person sees depends on their role (admin / editor / referee). */
-import { runPage, esc, href, icon, crest } from '../ui.js';
+import { runPage, esc, href, icon, crest, clockLabel } from '../ui.js';
 import { requestRefresh } from '../data.js';
 import { teamKey } from '../model.js';
-import { call, login, getSession, clearSession, ROLE_NAMES, AuthError } from '../admin-api.js';
+import { call, login, getSession, clearSession, ROLE_NAMES, AuthError, NetworkError } from '../admin-api.js';
 
 const SECTIONS = [
   ['match', 'Match console', ['admin', 'ref']],
@@ -31,7 +31,7 @@ runPage('admin', (m) => {
 });
 // Show the sign-in screen straight away — it doesn't need the scores.
 page = document.getElementById('page');
-show();
+queueMicrotask(show); // after the whole page script has loaded (it uses things defined further down)
 
 /* ================================================================ layout */
 
@@ -99,6 +99,7 @@ function renderShell(s) {
   page.querySelectorAll('[data-tab]').forEach((b) => { b.onclick = () => { st.tab = b.dataset.tab; renderShell(s); }; });
   page.querySelector('[data-close-sheet]').onclick = closeSheet;
   renderTab();
+  if (queue.length) pump();
 }
 
 function body() { return document.getElementById('admin-body'); }
@@ -172,10 +173,31 @@ function closeSheet() {
 
 const LIVE = (s) => s === 'Live' || s === 'HT';
 
+// The last match list and match states are kept on the phone, so the console
+// still opens (and keeps recording) when the page is reopened without signal.
+const CKEY = 'kyogyera:admin-cache';
+const readCache = () => { try { return JSON.parse(localStorage.getItem(CKEY) || '{}'); } catch (e) { return {}; } };
+function writeCache(patch) {
+  try {
+    const c = readCache();
+    if (patch.matches) c.matches = patch.matches;
+    if (patch.m) { c.states = c.states || {}; c.states[patch.m.match.id] = patch.m; }
+    localStorage.setItem(CKEY, JSON.stringify(c));
+  } catch (e) { /* storage full — not critical */ }
+}
+
 async function tabMatch(el) {
   if (!st.matches) {
     el.innerHTML = loadingHtml('Loading matches…');
-    st.matches = (await call('matches')).matches;
+    try {
+      st.matches = (await call('matches')).matches;
+      writeCache({ matches: st.matches });
+    } catch (e) {
+      const c = readCache();
+      if (!(e instanceof NetworkError) || !c.matches) throw e;
+      st.matches = c.matches;
+      offline = true;
+    }
   }
   if (!st.matchId || !st.matches.some((x) => x.id === st.matchId)) {
     const live = st.matches.find((x) => LIVE(x.status));
@@ -205,9 +227,25 @@ async function loadMatch() {
   if (!box || !st.matchId) return;
   try {
     st.m = await call('match', { matchId: st.matchId });
+    offline = false;
+    writeCache({ m: st.m });
+    queue.forEach((j) => applyOp(st.m, j.params));
     syncMatchList();
     drawConsole();
-  } catch (e) { handleError(e); box.innerHTML = '<p class="muted">Could not load this match.</p>'; }
+  } catch (e) {
+    const saved = (readCache().states || {})[st.matchId];
+    if (e instanceof NetworkError && saved) {
+      offline = true;
+      st.m = JSON.parse(JSON.stringify(saved));
+      queue.forEach((j) => applyOp(st.m, j.params));
+      drawConsole();
+      showSaving();
+      if (queue.length) { clearTimeout(retryTimer); retryTimer = setTimeout(pump, 6000); }
+      return;
+    }
+    handleError(e);
+    box.innerHTML = `<p class="muted">${e instanceof NetworkError ? 'No signal, and this match has not been opened on this phone before. It will load when the signal is back.' : 'Could not load this match.'}</p>`;
+  }
 }
 
 function teamObj(name) {
@@ -215,43 +253,117 @@ function teamObj(name) {
 }
 
 /* Changes show on screen straight away and are saved in the background, one
- * after another, in the order they were tapped. The answer to each save carries
- * the updated match, so there is no second trip to reload it. */
-const queue = [];
+ * after another, in the order they were tapped. Unsent changes are kept on the
+ * phone: with no signal they wait and are sent automatically when it returns
+ * (even after closing the page). Each change has an id, so a change that was
+ * already saved before the signal dropped is never applied twice. */
+const QKEY = 'kyogyera:admin-queue';
+const loadQ = () => { try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch (e) { return []; } };
+const queue = loadQ();
+const saveQ = () => { try { localStorage.setItem(QKEY, JSON.stringify(queue)); } catch (e) { /* ignore */ } };
 let saving = false;
+let offline = false;
+let retryTimer = 0;
 
-function enqueue(params, okMsg, optimistic) {
-  if (optimistic) { optimistic(st.m); drawConsole(); }
-  queue.push({ params: { matchId: st.matchId, ...params }, okMsg });
+function enqueue(params, okMsg) {
+  const job = { params: { matchId: st.matchId, opId: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), ...params }, okMsg };
+  applyOp(st.m, job.params);
+  drawConsole();
+  queue.push(job);
+  saveQ();
   pump();
 }
 
+// What a change looks like on screen before Google confirms it (also used to
+// re-apply waiting changes after the page reloads).
+function applyOp(m, p) {
+  if (!m || m.match.id !== p.matchId) return;
+  const M = m.match;
+  const other = (k) => (k === 'hs' ? 'as' : 'hs');
+  switch (p.action) {
+    case 'setStatus':
+      if (p.status === 'Live' && M.status === '') M.kickoffAt = new Date().toISOString();
+      if (p.status === 'Live' && M.status === 'HT') M.secondHalfAt = new Date().toISOString();
+      if (!p.status) { M.hs = ''; M.as = ''; M.kickoffAt = ''; M.secondHalfAt = ''; }
+      M.status = p.status;
+      if (p.status && M.hs === '' && M.as === '') { M.hs = 0; M.as = 0; }
+      break;
+    case 'stat':
+      if (p.value != null) { m.stats[p.side][p.stat] = p.value; if (p.stat === 'Possession') m.stats[p.side === 'home' ? 'away' : 'home'].Possession = 100 - p.value; }
+      else m.stats[p.side][p.stat] = Math.max(0, num(m.stats[p.side][p.stat]) + p.delta);
+      break;
+    case 'addGoal': {
+      const k = p.side === 'home' ? 'hs' : 'as';
+      M[k] = num(M[k]) + 1;
+      if (M[other(k)] === '') M[other(k)] = 0;
+      if (!M.status) M.status = 'Live';
+      m.goals.push({ pending: true, side: p.side, team: M[p.side], scorer: p.scorer, assist: p.assist, minute: p.minute, type: /own/i.test(p.type) ? 'OG' : p.type });
+      break;
+    }
+    case 'addCard':
+      m.cards.push({ pending: true, side: p.side, team: M[p.side], player: p.player, card: p.card, minute: p.minute });
+      break;
+    case 'removeGoal': case 'removeCard': {
+      const list = p.action === 'removeGoal' ? m.goals : m.cards;
+      const i = list.findIndex((x) => x.row === p.row);
+      if (i < 0) break;
+      if (p.action === 'removeGoal') { const k = list[i].side === 'away' ? 'as' : 'hs'; M[k] = Math.max(0, num(M[k]) - 1); }
+      list.splice(i, 1);
+      break;
+    }
+    case 'setMotm': M.motm = p.player; break;
+    case 'setNote': M.note = p.note; break;
+    case 'setScore': M.hs = p.home; M.as = p.away; if (!M.status && (p.home !== '' || p.away !== '')) M.status = 'Live'; break;
+    default:
+  }
+}
+
 async function pump() {
-  if (saving) return;
+  if (saving || !queue.length) { showSaving(); return; }
   saving = true;
+  clearTimeout(retryTimer);
   showSaving();
   let last = null;
   while (queue.length) {
-    const job = queue.shift();
+    const job = queue[0];
     try {
       const d = await call(job.params.action, job.params);
+      queue.shift(); saveQ();
+      offline = false;
       last = job.okMsg;
-      if (d.state && d.state.match.id === st.matchId && !queue.length) { st.m = d.state; syncMatchList(); drawConsole(); }
+      if (d.state) writeCache({ m: d.state });
+      if (d.state && d.state.match.id === st.matchId) {
+        st.m = d.state;
+        queue.forEach((j) => applyOp(st.m, j.params)); // changes still waiting stay visible
+        syncMatchList();
+        drawConsole();
+      }
     } catch (e) {
-      queue.length = 0;
+      if (e instanceof NetworkError) {
+        offline = true;
+        retryTimer = setTimeout(pump, 6000);
+        break;
+      }
+      if (e instanceof AuthError) { saving = false; handleError(e); return; }
+      queue.shift(); saveQ();
       handleError(e);
-      last = null;
-      if (!(e instanceof AuthError)) await loadMatch();
+      if (job.params.matchId === st.matchId) await loadMatch();
     }
   }
   saving = false;
   showSaving();
-  if (last) { toast(last); requestRefresh(); }
+  if (last && !queue.length) { toast(last); requestRefresh(); }
 }
+window.addEventListener('online', () => { if (queue.length) pump(); else if (offline && st.matchId) loadMatch(); });
 
 function showSaving() {
   const el = document.getElementById('c-saving');
-  if (el) el.hidden = !saving;
+  if (!el) return;
+  el.hidden = !queue.length && !saving && !offline;
+  el.classList.toggle('offline', offline && queue.length > 0);
+  el.innerHTML = offline
+    ? (queue.length ? `📶 No signal · ${queue.length} change${queue.length === 1 ? '' : 's'} waiting` : '📶 No signal · showing saved match')
+    : '<span class="spinner sm"></span> Saving…';
 }
 
 function syncMatchList() {
@@ -270,7 +382,7 @@ function drawConsole() {
   const ready = M.home && M.away;
   const hs = M.hs === '' ? '–' : M.hs, as = M.as === '' ? '–' : M.as;
   const pill = M.status === 'HT' ? '<span class="mc-state is-live">HT</span>'
-    : M.status === 'Live' ? '<span class="mc-state is-live"><i class="live-dot"></i>LIVE</span>'
+    : M.status === 'Live' ? `<span class="mc-state is-live" data-clock data-k="${Date.parse(M.kickoffAt) || ''}" data-s="${Date.parse(M.secondHalfAt) || ''}" data-st="Live"><i class="live-dot"></i><span class="clock-t">${clockLabel(Date.parse(M.kickoffAt) || null, Date.parse(M.secondHalfAt) || null, M.halfMinutes || 10, 'Live')}</span></span>`
       : M.status === 'FT' ? '<span class="mc-state">FT</span>' : `<span class="mc-state">${esc(M.time || 'Not started')}</span>`;
   const statusBtns = !ready ? '<p class="muted small">Add the two teams on the Fixtures tab first.</p>'
     : M.status === '' ? btn('Kick off', 'status', { status: 'Live' }, 'btn-go')
@@ -372,11 +484,7 @@ function drawConsole() {
       const s = b.dataset.status;
       if (s === '' && !confirm('Reset this match to not started? The score will be cleared (goals and cards stay in the sheet).')) return;
       if (s === 'FT' && !confirm('Full time? The result will count as final.')) return;
-      enqueue({ action: 'setStatus', status: s }, s === 'Live' ? 'Match is live ✓' : s === 'HT' ? 'Half time ✓' : s === 'FT' ? 'Full time ✓' : 'Match reset', (m) => {
-        m.match.status = s;
-        if (s && m.match.hs === '' && m.match.as === '') { m.match.hs = 0; m.match.as = 0; }
-        if (!s) { m.match.hs = ''; m.match.as = ''; }
-      });
+      enqueue({ action: 'setStatus', status: s }, s === 'Live' ? 'Match is live ✓' : s === 'HT' ? 'Half time ✓' : s === 'FT' ? 'Full time ✓' : 'Match reset');
     };
   });
   box.querySelectorAll('[data-do="goal"]').forEach((b) => { b.onclick = () => goalSheet(b.dataset.side); });
@@ -385,20 +493,14 @@ function drawConsole() {
     b.onclick = () => {
       const side = b.dataset.side, k = b.dataset.stat, d = +b.dataset.d;
       if (d < 0 && num(st.m.stats[side][k]) === 0) return;
-      enqueue({ action: 'stat', side, stat: k, delta: d }, 'Stats saved ✓', (m) => { m.stats[side][k] = Math.max(0, num(m.stats[side][k]) + d); });
+      enqueue({ action: 'stat', side, stat: k, delta: d }, 'Stats saved ✓');
     };
   });
   box.querySelectorAll('[data-do="undo"]').forEach((b) => {
     b.onclick = () => {
       if (!confirm('Remove this ' + (b.dataset.kind === 'goal' ? 'goal? The score goes down by one.' : 'card?'))) return;
       const before = JSON.parse(b.dataset.before), row = +b.dataset.row, kind = b.dataset.kind;
-      enqueue({ action: kind === 'goal' ? 'removeGoal' : 'removeCard', row, before }, 'Removed ✓', (m) => {
-        const list = kind === 'goal' ? m.goals : m.cards;
-        const i = list.findIndex((x) => x.row === row);
-        if (i < 0) return;
-        if (kind === 'goal') { const side = list[i].side === 'away' ? 'as' : 'hs'; m.match[side] = Math.max(0, num(m.match[side]) - 1); }
-        list.splice(i, 1);
-      });
+      enqueue({ action: kind === 'goal' ? 'removeGoal' : 'removeCard', row, before }, 'Removed ✓');
     };
   });
   const poss2 = box.querySelector('[data-form="poss"]');
@@ -407,7 +509,7 @@ function drawConsole() {
     const v = poss2.home.value;
     if (v === '') return;
     const h = Math.max(0, Math.min(100, +v));
-    enqueue({ action: 'stat', side: 'home', stat: 'Possession', value: h }, 'Possession saved ✓', (m) => { m.stats.home.Possession = h; m.stats.away.Possession = 100 - h; });
+    enqueue({ action: 'stat', side: 'home', stat: 'Possession', value: h }, 'Possession saved ✓');
   };
   const motm = box.querySelector('[data-form="motm"]');
   motm.player.onchange = () => { motm.newName.hidden = !motm.player.value.endsWith(NEW); };
@@ -416,15 +518,16 @@ function drawConsole() {
     const [s, p] = motm.player.value ? motm.player.value.split('|') : ['', ''];
     const name = p === NEW ? motm.newName.value.trim() : p;
     if (p === NEW && !name) { toast('Type the player\'s name', 'err'); return; }
-    enqueue({ action: 'setMotm', player: name, side: s }, name ? 'Man of the Match saved ✓' : 'Cleared', (m) => { m.match.motm = name; if (name && p === NEW) m.squads[s].push({ name, number: '' }); });
+    if (name && p === NEW) st.m.squads[s].push({ name, number: '' });
+    enqueue({ action: 'setMotm', player: name, side: s }, name ? 'Man of the Match saved ✓' : 'Cleared');
   };
   const note = box.querySelector('[data-form="note"]');
-  if (note) note.onsubmit = (e) => { e.preventDefault(); const v = note.note.value; enqueue({ action: 'setNote', note: v }, 'Note saved ✓', (m) => { m.match.note = v; }); };
+  if (note) note.onsubmit = (e) => { e.preventDefault(); const v = note.note.value; enqueue({ action: 'setNote', note: v }, 'Note saved ✓'); };
   const score = box.querySelector('[data-form="score"]');
   score.onsubmit = (e) => {
     e.preventDefault();
     const h = score.home.value, a = score.away.value;
-    enqueue({ action: 'setScore', home: h, away: a }, 'Score saved ✓', (m) => { m.match.hs = h; m.match.as = a; if (!m.match.status && (h !== '' || a !== '')) m.match.status = 'Live'; });
+    enqueue({ action: 'setScore', home: h, away: a }, 'Score saved ✓');
   };
 }
 
@@ -432,10 +535,32 @@ function btn(label, action, data, cls = '') {
   return `<button type="button" class="btn ${cls}" data-do="${action}" ${Object.entries(data).map(([k, v]) => `data-${k}="${esc(v)}"`).join(' ')}>${label}</button>`;
 }
 
+// Minute right now from the match clock ("34", "10+2"), for pre-filling forms.
+function clockMinute() {
+  const M = st.m && st.m.match;
+  if (!M || M.status !== 'Live' || !M.kickoffAt) return '';
+  return clockLabel(Date.parse(M.kickoffAt) || null, Date.parse(M.secondHalfAt) || null, M.halfMinutes || 10, 'Live').replace("'", '');
+}
+
+const person = (n) => String(n || '').toUpperCase().replace(/\s+/g, ' ').trim();
+// Discipline info for a player in this match: booked here, yellows earlier, suspended.
+function discipline(name) {
+  const k = person(name);
+  const here = st.m.cards.filter((c) => person(c.player) === k);
+  const earlierY = (st.m.earlierCards || []).filter((c) => person(c.player) === k && /yellow/i.test(c.card)).length;
+  const pub = model && model.match(st.matchId);
+  const susp = pub && pub.suspended ? pub.suspended.find((x) => person(x.player.name) === k) : null;
+  return { yellowHere: here.some((c) => /yellow/i.test(c.card)), redHere: here.some((c) => /red/i.test(c.card)), earlierY, suspended: susp ? susp.from.id : '' };
+}
+function playerTags(name) {
+  const d = discipline(name);
+  return (d.redHere ? ' 🟥' : d.yellowHere ? ' 🟨' : '') + (d.earlierY ? ` (${d.earlierY}🟨 before)` : '') + (d.suspended ? ' ⛔ suspended' : '');
+}
+
 function playerSelect(name, list, { withNone = '', selected = '' } = {}) {
   return `<select name="${name}">
     ${withNone ? `<option value="">${withNone}</option>` : ''}
-    ${list.map((p) => `<option value="${esc(p.name)}"${p.name === selected ? ' selected' : ''}>${esc(p.name)}${p.number ? ' #' + esc(p.number) : ''}</option>`).join('')}
+    ${list.map((p) => `<option value="${esc(p.name)}"${p.name === selected ? ' selected' : ''}>${esc(p.name)}${p.number ? ' #' + esc(p.number) : ''}${esc(playerTags(p.name))}</option>`).join('')}
     <option value="${NEW}">Someone not on the list…</option>
   </select>`;
 }
@@ -474,7 +599,7 @@ function goalSheet(side) {
       ${newPlayerFields('s')}
       <label id="assist-label">Assist ${playerSelect('assist', st.m.squads[side], { withNone: 'No assist' })}</label>
       ${newPlayerFields('a')}
-      <label>Minute <input name="minute" inputmode="numeric" placeholder="e.g. 34 or 45+2" maxlength="6"></label>
+      <label>Minute <input name="minute" inputmode="numeric" placeholder="e.g. 34 or 45+2" maxlength="6" value="${esc(clockMinute())}"></label>
       <div class="sheet-actions"><button type="button" class="btn-ghost" data-close-sheet>Cancel</button><button type="submit" class="btn btn-big">Save goal</button></div>
     </form>`);
   const f = panel.querySelector('#goal-form');
@@ -494,29 +619,26 @@ function goalSheet(side) {
     e.preventDefault();
     const sc = pickName(f, 'scorer', 's');
     if (!sc.name) { toast('Who scored?', 'err'); return; }
+    const dsc = discipline(sc.name);
+    if (dsc.suspended && !confirm(`${sc.name} is suspended for this match (red card in ${dsc.suspended}). Save the goal anyway?`)) return;
     const og = f.type.value === 'Own goal';
     const as = og ? { name: '' } : pickName(f, 'assist', 'a');
     const type = f.type.value === 'Normal' ? '' : f.type.value;
     const minute = f.minute.value.trim();
     closeSheet();
-    enqueue({ action: 'addGoal', side, scorer: sc.name, number: sc.number, assist: as.name, type, minute }, 'Goal saved ✓', (m) => {
-      const k = side === 'home' ? 'hs' : 'as';
-      m.match[k] = num(m.match[k]) + 1;
-      if (!m.match.status) m.match.status = 'Live';
-      if (m.match[k === 'hs' ? 'as' : 'hs'] === '') m.match[k === 'hs' ? 'as' : 'hs'] = 0;
-      m.goals.push({ pending: true, side, team: m.match[side], scorer: sc.name, assist: as.name, minute, type: type === 'Own goal' ? 'OG' : type });
-    });
+    enqueue({ action: 'addGoal', side, scorer: sc.name, number: sc.number, assist: as.name, type, minute }, 'Goal saved ✓');
   };
 }
 
-function cardSheet(side, card) {
+function cardSheet(side, cardType) {
+  let card = cardType;
   const M = st.m.match;
   const panel = openSheet(`
     <form class="sheet-form" id="card-form">
       <h3><span class="card-ic ${card === 'Red' ? 'red' : 'yellow'}"></span> ${card} card — ${esc(M[side])}</h3>
       <label>Player ${playerSelect('player', st.m.squads[side])}</label>
       ${newPlayerFields('p')}
-      <label>Minute <input name="minute" inputmode="numeric" placeholder="e.g. 61" maxlength="6"></label>
+      <label>Minute <input name="minute" inputmode="numeric" placeholder="e.g. 61" maxlength="6" value="${esc(clockMinute())}"></label>
       <div class="sheet-actions"><button type="button" class="btn-ghost" data-close-sheet>Cancel</button><button type="submit" class="btn btn-big">Save card</button></div>
     </form>`);
   const f = panel.querySelector('#card-form');
@@ -526,11 +648,16 @@ function cardSheet(side, card) {
     e.preventDefault();
     const p = pickName(f, 'player', 'p');
     if (!p.name) { toast('Which player?', 'err'); return; }
+    const d = discipline(p.name);
+    if (d.redHere && !confirm(`${p.name} has already been sent off in this match. Add another card anyway?`)) return;
+    if (card === 'Yellow' && d.yellowHere && !d.redHere) {
+      if (!confirm(`${p.name} already has a yellow card in this match. A second yellow means a RED card. Save it as a red card?`)) return;
+      card = 'Red';
+    }
+    if (d.suspended && !confirm(`${p.name} is suspended for this match (red card in ${d.suspended}). Save anyway?`)) return;
     const minute = f.minute.value.trim();
     closeSheet();
-    enqueue({ action: 'addCard', side, player: p.name, number: p.number, card, minute }, card + ' card saved ✓', (m) => {
-      m.cards.push({ pending: true, side, team: m.match[side], player: p.name, card, minute });
-    });
+    enqueue({ action: 'addCard', side, player: p.name, number: p.number, card, minute }, card + ' card saved ✓');
   };
 }
 
@@ -701,7 +828,7 @@ function tabSquads(el) {
     <div id="sq-ed"></div>`;
   el.querySelector('#sq-team').onchange = (e) => { st.squadTeam = e.target.value; tabSquads(el); };
   return editor(el.querySelector('#sq-ed'), 'Players', {
-    cols: [['Player', 'Name', 'text'], ['Number', 'Shirt number', 'number'], ['Position', 'Position', 'select', ['', 'GK', 'DF', 'MF', 'FW']], ['Team', 'Team', 'select', teams.map((x) => [x.name, x.name])]],
+    cols: [['Player', 'Name', 'text'], ['Number', 'Shirt number', 'number'], ['Position', 'Position', 'select', ['', 'GK', 'DF', 'MF', 'FW']], ['Team', 'Team', 'select', teams.map((x) => [x.name, x.name])], ['Photo', 'Photo (Drive link, optional)', 'text']],
     filter: (v) => teamKey(v.Team) === st.squadTeam,
     defaults: { Team: t ? t.name : '' },
     summary: (v) => `${v.Number ? `<b class="num-chip">${esc(v.Number)}</b>` : ''}${esc(v.Player)}${v.Position ? ` <span class="muted small">${esc(v.Position)}</span>` : ''}`,
@@ -781,9 +908,25 @@ function shrink(file) {
 /* ====================================================== info & settings */
 
 async function tabInfo(el) {
-  el.innerHTML = `<h3 class="a-h">Settings (Config tab)</h3><div id="cfg-ed"></div><h3 class="a-h">Rules &amp; contacts (Info tab)</h3><div id="info-ed"></div>`;
+  el.innerHTML = `<h3 class="a-h">Settings (Config tab)</h3>
+    <p class="muted small">Match clock: <b>HalfMinutes</b> = length of each half (default 10). Discipline: <b>RedCardBan</b> = matches a red card rules a player out (default 1).</p>
+    <div id="cfg-ed"></div>
+    <h3 class="a-h">Rules &amp; contacts (Info tab)</h3><div id="info-ed"></div>
+    <h3 class="a-h">History (past seasons)</h3><div id="hist-ed"></div>
+    <div class="card pad danger-zone">
+      <h3 class="a-h">⚠️ Reset all results</h3>
+      <p class="muted small">For after a rehearsal: clears every score, status, clock, Man of the Match, goal, card and match stat. Teams, players, fixtures, times, photos and settings stay.</p>
+      <label class="check"><input type="checkbox" id="rs-ko"> Also clear the knockout teams</label>
+      <label>Type <b>RESET</b> to confirm <input id="rs-word" autocomplete="off"></label>
+      <button type="button" class="btn btn-stop" id="rs-go">Reset all results</button>
+    </div>`;
+  el.querySelector('#rs-go').onclick = (e) => {
+    if (el.querySelector('#rs-word').value.trim() !== 'RESET') { toast('Type RESET to confirm', 'err'); return; }
+    act(e.target, () => call('resetResults', { clearKnockoutTeams: el.querySelector('#rs-ko').checked }), 'All results cleared ✓')
+      .then((ok) => { if (ok) { el.querySelector('#rs-word').value = ''; st.matches = null; } });
+  };
   await editor(el.querySelector('#cfg-ed'), 'Config', {
-    cols: [['Key', 'Setting', 'select', ['LeagueName', 'Venue', 'Season', 'MatchDate', 'LastUpdated', 'About', 'MapQuery', 'Directions']], ['Value', 'Value', 'textarea']],
+    cols: [['Key', 'Setting', 'select', ['LeagueName', 'Venue', 'Season', 'MatchDate', 'LastUpdated', 'About', 'MapQuery', 'Directions', 'HalfMinutes', 'RedCardBan']], ['Value', 'Value', 'textarea']],
     summary: (v) => `<b>${esc(v.Key)}</b><br><span class="muted small">${esc(String(v.Value).slice(0, 90))}${String(v.Value).length > 90 ? '…' : ''}</span>`,
     addLabel: 'Add a setting',
   });
@@ -791,6 +934,11 @@ async function tabInfo(el) {
     cols: [['Section', 'Section', 'select', ['Rules', 'Contacts', 'About', 'Match day']], ['Title', 'Title', 'text'], ['Body', 'Text (for Contacts: include the phone number)', 'textarea'], ['Link', 'Link (optional)', 'text']],
     summary: (v) => `<b>${esc(v.Title)}</b> <span class="muted small">${esc(v.Section)}</span>`,
     addLabel: 'Add a rule or contact',
+  });
+  await editor(el.querySelector('#hist-ed'), 'History', {
+    cols: [['Season', 'Season', 'text'], ['Year', 'Year', 'text'], ['Champion', 'Champion', 'text'], ['RunnerUp', 'Runner-up', 'text'], ['TopScorer', 'Golden Boot', 'text'], ['MOTMKing', 'Man of the Match king', 'text'], ['Notes', 'Notes', 'textarea']],
+    summary: (v) => `<b>${esc(v.Season)} ${esc(v.Year)}</b> <span class="muted small">${esc(v.Champion || 'champion not set')}</span>`,
+    addLabel: 'Add a season',
   });
 }
 

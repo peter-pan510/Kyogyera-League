@@ -1,4 +1,4 @@
-import { runPage, esc, href, icon, PAGES, matchCard, teamLink, crest, plural, fmtDate, kickoff, photoGrid, sponsorLogos } from '../ui.js';
+import { runPage, esc, href, icon, PAGES, matchCard, teamLink, crest, plural, fmtDate, kickoff, photoGrid, sponsorLogos, getMyTeam, setMyTeam, alertsOn, setAlerts, playerLink } from '../ui.js';
 import { chronoCmp } from '../model.js';
 
 const DEFAULT_ABOUT = 'The Kyogyera League brings old boys and old girls back home for the biggest reunion on the calendar. After a brilliant first season in 2026, Season 2 is here: eleven OB/OG teams, each built from a different set of school years, battle it out at Kitabuguma Playground for bragging rights and the Kyogyera trophy.';
@@ -37,6 +37,7 @@ runPage('home', (model, page) => {
 
   <div class="wrap">
     ${matchDayPanel(model)}
+    ${myTeamCard(model)}
     <section class="section">
       <div class="about card">
         <div>
@@ -200,3 +201,41 @@ setInterval(() => {
     if (b) b.textContent = String(parts[u]).padStart(u === 'days' ? 1 : 2, '0');
   }
 }, 1000);
+
+/* ---------------------------------------------------------------- my team */
+
+function myTeamCard(model) {
+  const t = model.teams.get(getMyTeam());
+  const teams = [...model.teamList].sort((a, b) => a.name.localeCompare(b.name));
+  const alertsBtn = `<button type="button" class="btn-ghost" data-alerts>${alertsOn() ? '🔔 Goal alerts on' : '🔕 Goal alerts off'}</button>`;
+  if (!t) {
+    return `<section class="section"><div class="card pad myteam pick">
+      <div><h3 class="a-h">⭐ Follow your team</h3><p class="muted small">Pick your team to see its next match here and have it highlighted everywhere.</p></div>
+      <div class="row-2"><label class="select full"><span class="sr-only">Team</span><select data-pick-team><option value="">Choose your team…</option>${teams.map((x) => `<option value="${esc(x.key)}">${esc(x.name)}</option>`).join('')}</select></label></div>
+      ${alertsBtn}
+    </div></section>`;
+  }
+  const s = t.stats;
+  const live = s.matches.find((m) => m.live);
+  const next = s.matches.find((m) => !m.played);
+  const last = [...s.matches].reverse().find((m) => m.finished);
+  const show = live || next || last;
+  return `<section class="section"><div class="card myteam">
+    <div class="myteam-head">
+      <a class="team" href="${href('team.html', { t: t.slug })}">${crest(t, 'lg')}<span class="tn"><span class="kicker">Your team</span><span class="tname">${esc(t.name)}</span></span></a>
+      <span class="muted small">${t.groupRow ? `${t.groupRow.pos}${['th', 'st', 'nd', 'rd'][t.groupRow.pos] || 'th'} in Group ${esc(t.group)} · ${t.groupRow.pts} pts` : ''}</span>
+    </div>
+    ${show ? `<div class="myteam-match"><p class="muted small">${live ? 'Playing now' : next && show === next ? 'Next match' : 'Last result'}</p>${matchCard(show, model)}</div>` : ''}
+    ${t.suspendedNext && t.suspendedNext.length ? `<p class="small warn">⛔ Suspended next match: ${t.suspendedNext.map((x) => playerLink(x.player)).join(', ')}</p>` : ''}
+    <div class="myteam-actions">${alertsBtn}<button type="button" class="btn-ghost" data-change-team>Change team</button></div>
+  </div></section>`;
+}
+
+document.addEventListener('change', (e) => {
+  if (e.target.matches('[data-pick-team]') && e.target.value) { setMyTeam(e.target.value); location.reload(); }
+});
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-change-team]')) { setMyTeam(''); location.reload(); }
+  const a = e.target.closest('[data-alerts]');
+  if (a) { const on = !alertsOn(); setAlerts(on); a.textContent = on ? '🔔 Goal alerts on' : '🔕 Goal alerts off'; }
+});

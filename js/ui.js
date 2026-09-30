@@ -67,7 +67,9 @@ export const PAGES = [
   { id: 'knockout', href: 'knockout.html', label: 'Knockouts', icon: 'knockout', desc: 'Who qualified and the bracket from quarterfinals to the final.' },
   { id: 'stats', href: 'stats.html', label: 'Stats', icon: 'stats', desc: 'Top scorers, assists, Man of the Match awards, cards and team stats.' },
   { id: 'teams', href: 'teams.html', label: 'Teams', icon: 'teams', desc: 'Every team’s record, form, win rate and squad.' },
+  { id: 'awards', href: 'awards.html', label: 'Awards', icon: 'trophy', desc: 'Champions, Golden Boot, Man of the Match king and every season award.' },
   { id: 'gallery', href: 'gallery.html', label: 'Gallery', icon: 'camera', desc: 'Photos from match day.' },
+  { id: 'history', href: 'history.html', label: 'History', icon: 'star', desc: 'Past seasons, champions and award winners.' },
   { id: 'info', href: 'info.html', label: 'Info', icon: 'info', desc: 'Rules, venue & directions, contacts and sponsors.' },
 ];
 const TOPNAV = ['home', 'matches', 'groups', 'table', 'knockout', 'stats', 'teams'];
@@ -209,6 +211,8 @@ export function runPage(pageId, render) {
 }
 
 function applyConfig(model) {
+  clockHalf = model.halfMinutes || 10;
+  goalAlerts(model);
   renderAnnouncementBar(model);
   if (currentPage !== 'admin') adPass.set(model.ads); // no adverts over the admin console
   renderFooterSponsors(model);
@@ -387,6 +391,18 @@ function hueFor(key) {
   return h;
 }
 
+/* ---------------------------------------------------------------- my team */
+
+const MY_KEY = 'kyogyera:myteam';
+export function getMyTeam() { try { return localStorage.getItem(MY_KEY) || ''; } catch (e) { return ''; } }
+export function setMyTeam(key) { try { if (key) localStorage.setItem(MY_KEY, key); else localStorage.removeItem(MY_KEY); } catch (e) { /* ignore */ } }
+export const isMine = (team) => !!team && team.key === getMyTeam();
+
+export function playerLink(p, label) {
+  if (!p) return '';
+  return `<a class="plink" href="${href('player.html', { p: p.slug })}">${esc(label || p.name)}</a>`;
+}
+
 export function teamColor(team) {
   return team.color || `hsl(${hueFor(team.key)} 55% 38%)`;
 }
@@ -475,9 +491,31 @@ function scorerSummary(m, side) {
 export const kickoff = (m) => (m.date && m.date.time ? m.date.d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '');
 
 // Match state pill: LIVE / HT / FT / kick-off time.
+// Minute of a live match from when each half started, e.g. "34'" or "10+2'".
+export function clockLabel(kick, second, half, status) {
+  if (status === 'HT') return 'HT';
+  if (!kick) return 'LIVE';
+  const now = Date.now();
+  let min, cap;
+  if (second) { min = half + Math.floor((now - second) / 60000) + 1; cap = half * 2; }
+  else { min = Math.floor((now - kick) / 60000) + 1; cap = half; }
+  if (min < 1) min = 1;
+  return min > cap ? `${cap}+${min - cap}'` : `${min}'`;
+}
+function clockAttrs(m) {
+  return `data-clock data-k="${m.kickoffAt || ''}" data-s="${m.secondHalfAt || ''}" data-st="${esc(m.status)}"`;
+}
+let clockHalf = 10;
+setInterval(() => {
+  document.querySelectorAll('[data-clock]').forEach((el) => {
+    const t = el.querySelector('.clock-t') || el;
+    t.textContent = clockLabel(+el.dataset.k || null, +el.dataset.s || null, clockHalf, el.dataset.st);
+  });
+}, 15000);
+
 export function statePill(m) {
   if (m.status === 'HT' && m.live) return '<span class="mc-state is-live">HT</span>';
-  if (m.live) return '<span class="mc-state is-live"><i class="live-dot"></i>LIVE</span>';
+  if (m.live) return `<span class="mc-state is-live" ${clockAttrs(m)}><i class="live-dot"></i><span class="clock-t">${clockLabel(m.kickoffAt, m.secondHalfAt, clockHalf, m.status)}</span></span>`;
   if (m.played) return '<span class="mc-state">FT</span>';
   return `<span class="mc-state">${esc(kickoff(m) || 'TBC')}</span>`;
 }
@@ -497,7 +535,7 @@ export function matchCard(m, model, { showStage = true, upNext = false } = {}) {
   const scorers = m.played ? [scorerSummary(m, 'home'), scorerSummary(m, 'away')].filter(Boolean).join(' &nbsp;|&nbsp; ') : '';
   // On a one-day tournament the date is the same for every match, so show the kick-off time instead.
   const when = model.oneDay ? (m.played ? kickoff(m) : '') : (m.played ? '' : fmtDate(m.date, m.dateRaw, { noTime: true }));
-  return `<a class="mcard${m.played ? ' played' : ''}${m.live ? ' is-live' : ''}${upNext ? ' is-next' : ''}" href="${href('match.html', { id: m.id })}" id="m-${esc(m.id)}">
+  return `<a class="mcard${m.played ? ' played' : ''}${m.live ? ' is-live' : ''}${upNext ? ' is-next' : ''}${isMine(m.home) || isMine(m.away) ? ' mine' : ''}" href="${href('match.html', { id: m.id })}" id="m-${esc(m.id)}">
     <div class="mc-meta">
       ${upNext ? '<span class="tag tag-next">Up next</span>' : ''}
       ${showStage ? `<span class="tag${m.stage === 'ko' ? ' tag-gold' : ''}">${esc(stageLabel(m))}</span>` : ''}
@@ -556,7 +594,7 @@ export const COLS = {
  */
 export function standingsTable(rows, { cols = ['p', 'w', 'd', 'l', 'gf', 'ga', 'gd', 'pts', 'form'], highlight = null, years = true, compact = false, liveAny = false } = {}) {
   const head = cols.map((c) => `<th scope="col" class="${COLS[c].cls || ''}" title="${COLS[c].title}"><abbr title="${COLS[c].title}">${COLS[c].label}</abbr></th>`).join('');
-  const body = rows.map((r) => `<tr class="st-${r.status || 'none'}${highlight && r.team === highlight ? ' hl' : ''}">
+  const body = rows.map((r) => `<tr class="st-${r.status || 'none'}${highlight && r.team === highlight ? ' hl' : ''}${isMine(r.team) ? ' mine' : ''}">
       <td class="c-pos">${r.pos}</td>
       <th scope="row" class="c-team">${teamLink(r.team, { years: years && !compact })}${r.team.liveNow && (liveAny || r.team.liveNow.stage === 'group') ? `<a class="live-chip" href="${href('match.html', { id: r.team.liveNow.id })}" title="Playing now">LIVE</a>` : ''}</th>
       ${cols.map((c) => `<td class="${COLS[c].cls || ''}">${COLS[c].v(r)}</td>`).join('')}
@@ -687,3 +725,56 @@ export const adPass = (() => {
     },
   };
 })();
+
+/* ------------------------------------------------------------ goal alerts */
+
+// When the scores change while someone has the site open, show a big alert
+// (and buzz the phone). The first data after opening a page is the baseline.
+let lastScores = null;
+const ALERT_KEY = 'kyogyera:alerts';
+export const alertsOn = () => { try { return localStorage.getItem(ALERT_KEY) !== 'off'; } catch (e) { return true; } };
+export function setAlerts(on) { try { localStorage.setItem(ALERT_KEY, on ? 'on' : 'off'); } catch (e) { /* ignore */ } }
+
+function goalAlerts(model) {
+  const now = {};
+  model.matches.forEach((m) => { if (m.home && m.away && m.played) now[m.id] = { hs: m.hs, as: m.as, status: m.status, m }; });
+  const prev = lastScores;
+  lastScores = now;
+  if (!prev || !alertsOn() || currentPage === 'admin') return;
+  const alerts = [];
+  Object.values(now).forEach(({ hs, as, status, m }) => {
+    const p = prev[m.id] || { hs: 0, as: 0, status: '' };
+    const mine = isMine(m.home) || isMine(m.away);
+    if (hs + as > p.hs + p.as) {
+      const side = hs > p.hs ? 'home' : 'away';
+      const g = m.goals.filter((x) => x.side === side).slice(-1)[0];
+      const who = g && g.scorer ? ` — ${g.scorer.name}${g.minute ? ' ' + g.minute.label : ''}${g.type === 'OG' ? ' (own goal)' : g.type === 'PEN' ? ' (pen)' : ''}` : '';
+      alerts.push({ mine, title: '⚽ GOAL!', text: `${m.home.name} ${hs}–${as} ${m.away.name}${who}`, id: m.id });
+    } else if (status === 'FT' && p.status !== 'FT' && prev[m.id]) {
+      alerts.push({ mine, title: 'Full time', text: `${m.home.name} ${hs}–${as} ${m.away.name}`, id: m.id });
+    }
+  });
+  if (alerts.length) showAlert(alerts.sort((a, b) => b.mine - a.mine)[0], alerts.length - 1);
+}
+
+let alertTimer = 0;
+function showAlert(a, more) {
+  let el = document.getElementById('goal-alert');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'goal-alert';
+    el.setAttribute('role', 'alert');
+    document.body.appendChild(el);
+  }
+  el.className = 'goal-alert' + (a.mine ? ' mine' : '');
+  el.innerHTML = `<a href="${href('match.html', { id: a.id })}"><b>${esc(a.title)}${a.mine ? ' · YOUR TEAM' : ''}</b><span>${esc(a.text)}${more ? ` <small>+${more} more</small>` : ''}</span></a>
+    <button type="button" class="ga-mute" aria-label="Turn off goal alerts">🔕</button>`;
+  el.querySelector('.ga-mute').onclick = () => {
+    try { localStorage.setItem(ALERT_KEY, 'off'); } catch (e) { /* ignore */ }
+    el.remove();
+  };
+  requestAnimationFrame(() => el.classList.add('show'));
+  if (navigator.vibrate) { try { navigator.vibrate(a.title.startsWith('⚽') ? [200, 100, 200] : 150); } catch (e) { /* ignore */ } }
+  clearTimeout(alertTimer);
+  alertTimer = setTimeout(() => el.classList.remove('show'), 8000);
+}
