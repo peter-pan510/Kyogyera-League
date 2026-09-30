@@ -594,7 +594,7 @@ export function plural(n, word, pl) {
 // × hides it for the rest of the visit. Ads come from the Ads tab of the sheet.
 // The gap between ads carries across pages, so browsing doesn't repeat it.
 export const adPass = (() => {
-  const FIRST_DELAY = 6000, GAP = 60000, SPEED = 70; // px per second
+  const FIRST_DELAY = 6000, GAP = 60000, SPEED = 50; // px per second
   let ads = [], idx = 0, el = null, timer = null, anim = null, closed = false, started = false;
   const LAST_KEY = 'kyogyera:ad-last'; // when the last ad finished (this visit, all pages)
   const store = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } return null; };
