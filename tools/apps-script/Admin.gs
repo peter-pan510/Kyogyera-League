@@ -11,8 +11,8 @@
  * private Script Properties. Create/see codes with Kyogyera → 6. Admin codes.
  *
  * Roles
- *   admin  — everything, incl. announcements, sponsors, ads, codes, activity log
- *   editor — everything except announcements, sponsors, ads and codes
+ *   admin  — everything
+ *   editor — fixtures (times, knockout teams, group & knockout draws), squads, teams
  *   ref    — the match console only (status, score, goals, cards, stats, MOTM, new players)
  */
 
@@ -21,12 +21,12 @@ const KL = {
   MAX_FAILS: 20, // wrong codes allowed per 10 minutes (for everyone together)
   ROLE_NAMES: { admin: 'Admin', editor: 'Editor', ref: 'Referee' },
   TAB_ROLES: {
-    Announcements: ['admin'], Sponsors: ['admin'], Ads: ['admin'],
-    Teams: ['admin', 'editor'], Players: ['admin', 'editor'], GroupFixtures: ['admin', 'editor'],
-    KnockoutFixtures: ['admin', 'editor'], Config: ['admin', 'editor'], Info: ['admin', 'editor'],
-    Photos: ['admin', 'editor'], Goals: ['admin', 'editor'], Cards: ['admin', 'editor'], MatchStats: ['admin', 'editor'],
+    Announcements: ['admin'], Sponsors: ['admin'], Ads: ['admin'], Config: ['admin'], Info: ['admin'], Photos: ['admin'],
+    Goals: ['admin'], Cards: ['admin'], MatchStats: ['admin'],
+    Teams: ['admin', 'editor'], Players: ['admin', 'editor'], GroupFixtures: ['admin', 'editor'], KnockoutFixtures: ['admin', 'editor'],
   },
-  MATCH_ROLES: ['admin', 'editor', 'ref'],
+  MATCH_ROLES: ['admin', 'ref'],
+  FIXTURE_ROLES: ['admin', 'editor'],
   STATS: ['Possession', 'Shots', 'ShotsOnTarget', 'Corners', 'Fouls', 'Offsides', 'Saves'],
 };
 
@@ -57,6 +57,7 @@ function klHandle(req) {
   const who = klVerify(req.token);
   const need = (roles) => { if (roles.indexOf(who.role) < 0) throw new Error('Your code is not allowed to do that.'); };
   const tabOk = (tab) => { const r = KL.TAB_ROLES[tab]; if (!r) throw new Error('Unknown tab "' + tab + '".'); need(r); };
+  const withState = (out) => Object.assign(out || {}, { state: klMatchState(req.matchId) });
 
   switch (a) {
     case 'whoami': return { name: who.name, role: who.role };
@@ -70,17 +71,20 @@ function klHandle(req) {
     // ---- match console
     case 'matches': need(KL.MATCH_ROLES); return { matches: klMatchList() };
     case 'match': need(KL.MATCH_ROLES); return klMatchState(req.matchId);
-    case 'setStatus': need(KL.MATCH_ROLES); return klWrite(who, () => klSetStatus(req.matchId, req.status), req.matchId + ' status → ' + (req.status || 'upcoming'));
-    case 'setScore': need(KL.MATCH_ROLES); return klWrite(who, () => klSetScore(req.matchId, req.home, req.away), req.matchId + ' score set to ' + req.home + '-' + req.away);
-    case 'addGoal': need(KL.MATCH_ROLES); return klWrite(who, () => klAddGoal(req), req.matchId + ' goal: ' + req.scorer + ' (' + req.side + ')');
-    case 'removeGoal': need(KL.MATCH_ROLES); return klWrite(who, () => klRemoveGoal(req.matchId, req.row, req.before), req.matchId + ' goal removed');
-    case 'addCard': need(KL.MATCH_ROLES); return klWrite(who, () => klAddCard(req), req.matchId + ' ' + req.card + ' card: ' + req.player);
-    case 'removeCard': need(KL.MATCH_ROLES); return klWrite(who, () => klRemoveMatchRow('Cards', req.matchId, req.row, req.before), req.matchId + ' card removed');
-    case 'stat': need(KL.MATCH_ROLES); return klWrite(who, () => klStat(req.matchId, req.side, req.stat, req.delta, req.value), req.matchId + ' ' + req.stat + ' ' + req.side + (req.value != null ? ' = ' + req.value : ' ' + (req.delta > 0 ? '+' : '') + req.delta));
-    case 'setMotm': need(KL.MATCH_ROLES); return klWrite(who, () => klSetMotm(req.matchId, req.player, req.side, req.newPlayer), req.matchId + ' Man of the Match: ' + req.player);
-    case 'setNote': need(KL.MATCH_ROLES); return klWrite(who, () => klSetCell(req.matchId, 'Note', req.note || ''), req.matchId + ' note: ' + req.note);
-    case 'addPlayer': need(KL.MATCH_ROLES); return klWrite(who, () => ({ added: klEnsurePlayer(req.team, req.player, req.number, req.position) }), 'New player ' + req.player + ' (' + req.team + ')');
-    case 'setFixture': need(['admin', 'editor']); return klWrite(who, () => klSetFixture(req.matchId, req.values), req.matchId + ' fixture updated', req.values);
+    case 'setStatus': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klSetStatus(req.matchId, req.status), req.matchId + ' status → ' + (req.status || 'upcoming')));
+    case 'setScore': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klSetScore(req.matchId, req.home, req.away), req.matchId + ' score set to ' + req.home + '-' + req.away));
+    case 'addGoal': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klAddGoal(req), req.matchId + ' goal: ' + req.scorer + ' (' + req.side + ')'));
+    case 'removeGoal': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klRemoveGoal(req.matchId, req.row, req.before), req.matchId + ' goal removed'));
+    case 'addCard': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klAddCard(req), req.matchId + ' ' + req.card + ' card: ' + req.player));
+    case 'removeCard': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klRemoveMatchRow('Cards', req.matchId, req.row, req.before), req.matchId + ' card removed'));
+    case 'stat': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klStat(req.matchId, req.side, req.stat, req.delta, req.value), req.matchId + ' ' + req.stat + ' ' + req.side + (req.value != null ? ' = ' + req.value : ' ' + (req.delta > 0 ? '+' : '') + req.delta)));
+    case 'setMotm': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klSetMotm(req.matchId, req.player, req.side, req.newPlayer), req.matchId + ' Man of the Match: ' + req.player));
+    case 'setNote': need(KL.MATCH_ROLES); return withState(klWrite(who, () => klSetCell(req.matchId, 'Note', req.note || ''), req.matchId + ' note: ' + req.note));
+    case 'addPlayer': need(KL.MATCH_ROLES.concat(['editor'])); return klWrite(who, () => ({ added: klEnsurePlayer(req.team, req.player, req.number, req.position) }), 'New player ' + req.player + ' (' + req.team + ')');
+    case 'setFixture': need(KL.FIXTURE_ROLES); return klWrite(who, () => klSetFixture(req.matchId, req.values), req.matchId + ' fixture updated', req.values);
+    case 'fixtures': need(KL.FIXTURE_ROLES); return klFixtureState();
+    case 'groupDraw': need(KL.FIXTURE_ROLES); return klWrite(who, () => klGroupDraw(req.groups), 'Group draw', req.groups);
+    case 'koDraw': need(KL.FIXTURE_ROLES); return klWrite(who, () => klKoDraw(req.pairs), 'Knockout draw', req.pairs);
 
     // ---- photos
     case 'uploadPhoto': tabOk('Photos'); return klWrite(who, () => klUploadPhoto(req), 'Uploaded photo "' + (req.caption || '') + '"');
@@ -339,6 +343,9 @@ function klMatchState(matchId) {
   const mine = (tab) => klList(tab).rows.filter((r) => String(r.values.MatchID).toUpperCase() === id);
   const homeK = klKey(v.TeamHome), awayK = klKey(v.TeamAway);
   const sideOf = (team) => (klKey(team) === homeK ? 'home' : klKey(team) === awayK ? 'away' : '');
+  const players = klList('Players').rows;
+  const squadOf = (team) => (team ? players.filter((r) => klKey(r.values.Team) === klKey(team) && r.values.Player)
+    .map((r) => ({ name: r.values.Player, number: r.values.Number || '', position: r.values.Position || '' })) : []);
   const stats = { home: {}, away: {} };
   mine('MatchStats').forEach((r) => { const s = sideOf(r.values.Team); if (s) KL.STATS.forEach((k) => { stats[s][k] = r.values[k] === '' || r.values[k] == null ? '' : Number(r.values[k]); }); });
   return {
@@ -350,7 +357,7 @@ function klMatchState(matchId) {
     goals: mine('Goals').map((r) => ({ row: r._row, before: r._raw, side: sideOf(r.values.Team), team: r.values.Team, scorer: r.values.Scorer, assist: r.values.Assist, minute: r.values.Minute, type: r.values.Type })),
     cards: mine('Cards').map((r) => ({ row: r._row, before: r._raw, side: sideOf(r.values.Team), team: r.values.Team, player: r.values.Player, card: r.values.Card, minute: r.values.Minute })),
     stats,
-    squads: { home: v.TeamHome ? klSquad(v.TeamHome) : [], away: v.TeamAway ? klSquad(v.TeamAway) : [] },
+    squads: { home: squadOf(v.TeamHome), away: squadOf(v.TeamAway) },
   };
 }
 
@@ -543,4 +550,92 @@ function klWrite(who, fn, action, details) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/* ================================================================= draws */
+
+// Where the draw stands: teams per group, and whether the group stage has started.
+function klFixtureState() {
+  const teams = klList('Teams').rows.map((r) => ({ name: r.values.TeamName, group: String(r.values.Group || '').toUpperCase().replace(/^GROUP\s*/, '').trim() }));
+  const fixtures = klList('GroupFixtures').rows;
+  const started = fixtures.some((r) => r.values.Status || r.values.ScoreHome !== '' || r.values.ScoreAway !== '');
+  const ko = klList('KnockoutFixtures').rows.filter((r) => /^QF/i.test(r.values.Slot || r.values.Round));
+  const koStarted = ko.some((r) => r.values.Status || r.values.ScoreHome !== '' || r.values.ScoreAway !== '');
+  return { teams, started, koStarted };
+}
+
+// Round-robin pairings for one group (circle method), as rounds of [home, away].
+function klRoundRobin(list) {
+  const t = list.slice();
+  if (t.length % 2) t.push(null);
+  const n = t.length, rounds = [];
+  for (let r = 0; r < n - 1; r++) {
+    const games = [];
+    for (let i = 0; i < n / 2; i++) {
+      const a = t[i], b = t[n - 1 - i];
+      if (a && b) games.push(r % 2 ? [b, a] : [a, b]);
+    }
+    rounds.push(games);
+    t.splice(1, 0, t.pop()); // rotate all but the first
+  }
+  return rounds;
+}
+
+/** New group draw: groups = { A: [team names], B: [...], ... }. Rebuilds Teams groups and GroupFixtures. */
+function klGroupDraw(groups) {
+  const state = klFixtureState();
+  if (state.started) throw new Error('The group stage has already started — the groups can no longer be reshuffled.');
+  const ids = Object.keys(groups || {}).sort();
+  const drawn = [].concat.apply([], ids.map((g) => groups[g]));
+  const current = state.teams.map((t) => t.name);
+  const sizeNow = {}; state.teams.forEach((t) => { sizeNow[t.group] = (sizeNow[t.group] || 0) + 1; });
+  if (drawn.length !== current.length || current.some((n) => drawn.indexOf(n) < 0)) throw new Error('The draw must contain every team exactly once.');
+  if (ids.some((g) => groups[g].length !== sizeNow[g])) throw new Error('Group sizes must stay the same (' + Object.keys(sizeNow).sort().map((g) => g + ': ' + sizeNow[g]).join(', ') + ').');
+
+  // 1. Teams tab: new group letters
+  const tsh = klSheet('Teams');
+  const thead = klHead(tsh);
+  const gcol = thead.indexOf('Group') + 1, ncol = thead.indexOf('TeamName');
+  const trows = tsh.getRange(2, 1, tsh.getLastRow() - 1, thead.length).getDisplayValues();
+  trows.forEach((r, i) => {
+    const g = ids.find((id) => groups[id].indexOf(r[ncol]) >= 0);
+    if (g) tsh.getRange(i + 2, gcol).setValue(g);
+  });
+
+  // 2. GroupFixtures: same number of rows and kick-off times, new pairings.
+  //    Rounds are interleaved across groups so no team plays twice in a row.
+  const fsh = klSheet('GroupFixtures');
+  const fhead = klHead(fsh);
+  const frows = fsh.getRange(2, 1, fsh.getLastRow() - 1, fhead.length).getDisplayValues();
+  const times = frows.map((r) => r[fhead.indexOf('Date')]);
+  const perGroup = {};
+  ids.forEach((g) => { perGroup[g] = klRoundRobin(groups[g]); });
+  const order = [];
+  const maxRounds = Math.max.apply(null, ids.map((g) => perGroup[g].length));
+  for (let r = 0; r < maxRounds; r++) ids.forEach((g) => (perGroup[g][r] || []).forEach((m) => order.push([g, m])));
+  const count = {};
+  const out = order.map(([g, m], i) => {
+    count[g] = (count[g] || 0) + 1;
+    return klRowArray(fhead, { MatchID: 'G' + g + count[g], Group: g, TeamHome: m[0], TeamAway: m[1], ScoreHome: '', ScoreAway: '', Date: times[i] || '', Status: '', MOTM: '', MOTMTeam: '' });
+  });
+  fsh.getRange(2, 1, Math.max(frows.length, 1), fhead.length).clearContent();
+  fsh.getRange(2, 1, out.length, fhead.length).setValues(out);
+  return { matches: out.length };
+}
+
+/** Knockout draw: pairs = [[home, away] x4] for QF1..QF4. */
+function klKoDraw(pairs) {
+  const sh = klSheet('KnockoutFixtures');
+  const head = klHead(sh);
+  const rows = klList('KnockoutFixtures').rows.filter((r) => /^QF\d/i.test(String(r.values.Slot).replace(/\s/g, '')))
+    .sort((a, b) => String(a.values.Slot).localeCompare(String(b.values.Slot)));
+  if (rows.some((r) => r.values.Status || r.values.ScoreHome !== '' || r.values.ScoreAway !== '')) throw new Error('A quarterfinal has already started — the draw can no longer be changed.');
+  if (!Array.isArray(pairs) || pairs.length !== rows.length) throw new Error('The draw must fill all ' + rows.length + ' quarterfinals.');
+  const all = [].concat.apply([], pairs);
+  if (all.some((t) => !t) || new Set(all).size !== all.length) throw new Error('Each team can only appear once in the draw.');
+  rows.forEach((r, i) => {
+    sh.getRange(r._row, head.indexOf('TeamHome') + 1).setValue(pairs[i][0]);
+    sh.getRange(r._row, head.indexOf('TeamAway') + 1).setValue(pairs[i][1]);
+  });
+  return { quarterfinals: rows.length };
 }

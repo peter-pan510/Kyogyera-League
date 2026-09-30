@@ -111,9 +111,17 @@ The gold **ADMIN** button at the top of every page opens a sign-in screen. Witho
 
 | Role | Can do |
 |---|---|
-| **Admin** | Everything, including announcements, sponsors, adverts, codes and the activity log |
-| **Editor** | Everything **except** announcements, sponsors, adverts and codes |
+| **Admin** | Everything: match console, fixtures and draws, squads, teams, photos, info and settings, announcements, sponsors, adverts, codes, activity log |
+| **Editor** | **Fixtures & draw** (kick-off times, knockout teams, random **group draw** and **knockout draw**), **Squads**, **Teams** |
 | **Referee** | The **match console** only: kick-off / HT / FT, goals (scorer, assist, minute, penalty or own goal), yellow and red cards, fouls, corners, shots and other stats, Man of the Match, and adding players who aren't on the list |
+
+**The match console reacts instantly.** Taps show on screen straight away and are saved to the sheet in the background, in order ("Saving…" shows meanwhile). If a save fails, the console reloads the match and shows what went wrong.
+
+**Draws (Fixtures & draw tab):**
+
+- **Group draw:** randomly reshuffles the 11 teams into groups A/B/C (4/4/3). It rebuilds all 15 group fixtures with the same kick-off times, every pair playing once and no team playing twice in a row. It's only possible before any group match starts.
+- **Knockout draw:** once all group matches are at full time, it randomly pairs the 8 qualified teams into QF1–QF4, keeping teams from the same group apart where possible.
+- Both show a preview first, with **Shuffle again** and **Use this draw**.
 
 **Getting the codes:** in the sheet, choose **Kyogyera → 6. Admin codes**. The first time, it creates three codes (Admin, Referee, Editor) and shows them once. Write them down.
 

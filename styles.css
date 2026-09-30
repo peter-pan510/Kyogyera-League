@@ -1057,3 +1057,22 @@ a.b-match:hover { border-color: var(--gold); }
 .pin-big { font: 800 42px var(--font-display); letter-spacing: 0.3em; color: var(--gold); margin: 6px 0; }
 .log-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .log-list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 9px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); font-size: 13.5px; }
+.c-saving { margin-left: 8px; color: var(--gold); text-transform: none; letter-spacing: 0; }
+.c-saving[hidden] { display: none; }
+.ev-t.pending { opacity: 0.6; }
+.draw-card { display: grid; gap: 10px; }
+.draw-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; }
+.draw-groups > div { padding: 10px; border-radius: 12px; background: var(--card-2); }
+.draw-groups b { color: var(--gold); font-family: var(--font-display); font-size: 17px; text-transform: uppercase; }
+.draw-groups ol { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
+.draw-ko { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.draw-ko li { padding: 10px 12px; border-radius: 12px; background: var(--card-2); }
+.draw-ko b { color: var(--gold); margin-right: 8px; }
+.draw-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.draw-groups li { overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .draw-groups { grid-template-columns: 1fr; }
+  .draw-groups ol { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-left: 0; list-style: none; counter-reset: dg; }
+  .draw-groups li { counter-increment: dg; }
+  .draw-groups li::before { content: counter(dg) ". "; color: var(--muted); }
+}

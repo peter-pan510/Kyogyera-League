@@ -6,12 +6,12 @@ import { teamKey } from '../model.js';
 import { call, login, getSession, clearSession, ROLE_NAMES, AuthError } from '../admin-api.js';
 
 const SECTIONS = [
-  ['match', 'Match console', ['admin', 'editor', 'ref']],
-  ['fixtures', 'Fixtures', ['admin', 'editor']],
+  ['match', 'Match console', ['admin', 'ref']],
+  ['fixtures', 'Fixtures & draw', ['admin', 'editor']],
   ['squads', 'Squads', ['admin', 'editor']],
-  ['photos', 'Photos', ['admin', 'editor']],
-  ['info', 'Info & settings', ['admin', 'editor']],
   ['teams', 'Teams', ['admin', 'editor']],
+  ['photos', 'Photos', ['admin']],
+  ['info', 'Info & settings', ['admin']],
   ['announce', 'Announcements', ['admin']],
   ['sponsors', 'Sponsors & ads', ['admin']],
   ['codes', 'Codes', ['admin']],
@@ -205,11 +205,7 @@ async function loadMatch() {
   if (!box || !st.matchId) return;
   try {
     st.m = await call('match', { matchId: st.matchId });
-    // keep the match list in step
-    const x = st.matches.find((mm) => mm.id === st.matchId);
-    if (x) Object.assign(x, { hs: st.m.match.hs, as: st.m.match.as, status: st.m.match.status, home: st.m.match.home, away: st.m.match.away });
-    const pick = document.getElementById('m-pick');
-    if (pick) { pick.innerHTML = matchOptions(); pick.value = st.matchId; }
+    syncMatchList();
     drawConsole();
   } catch (e) { handleError(e); box.innerHTML = '<p class="muted">Could not load this match.</p>'; }
 }
@@ -218,8 +214,58 @@ function teamObj(name) {
   return model && name ? model.teams.get(teamKey(name)) || null : null;
 }
 
+/* Changes show on screen straight away and are saved in the background, one
+ * after another, in the order they were tapped. The answer to each save carries
+ * the updated match, so there is no second trip to reload it. */
+const queue = [];
+let saving = false;
+
+function enqueue(params, okMsg, optimistic) {
+  if (optimistic) { optimistic(st.m); drawConsole(); }
+  queue.push({ params: { matchId: st.matchId, ...params }, okMsg });
+  pump();
+}
+
+async function pump() {
+  if (saving) return;
+  saving = true;
+  showSaving();
+  let last = null;
+  while (queue.length) {
+    const job = queue.shift();
+    try {
+      const d = await call(job.params.action, job.params);
+      last = job.okMsg;
+      if (d.state && d.state.match.id === st.matchId && !queue.length) { st.m = d.state; syncMatchList(); drawConsole(); }
+    } catch (e) {
+      queue.length = 0;
+      handleError(e);
+      last = null;
+      if (!(e instanceof AuthError)) await loadMatch();
+    }
+  }
+  saving = false;
+  showSaving();
+  if (last) { toast(last); requestRefresh(); }
+}
+
+function showSaving() {
+  const el = document.getElementById('c-saving');
+  if (el) el.hidden = !saving;
+}
+
+function syncMatchList() {
+  const x = st.matches && st.matches.find((mm) => mm.id === st.matchId);
+  if (x) Object.assign(x, { hs: st.m.match.hs, as: st.m.match.as, status: st.m.match.status });
+  const pick = document.getElementById('m-pick');
+  if (pick) { pick.innerHTML = matchOptions(); pick.value = st.matchId; }
+}
+
+const num = (v) => (v === '' || v == null ? 0 : Number(v) || 0);
+
 function drawConsole() {
   const box = document.getElementById('console');
+  if (!box || !st.m) return;
   const { match: M, goals, cards, stats } = st.m;
   const ready = M.home && M.away;
   const hs = M.hs === '' ? '–' : M.hs, as = M.as === '' ? '–' : M.as;
@@ -249,7 +295,7 @@ function drawConsole() {
 
   box.innerHTML = `
   <div class="card console">
-    <p class="c-stage">${esc(M.stage)} · ${esc(M.id)} · ${esc(M.time)}</p>
+    <p class="c-stage">${esc(M.stage)} · ${esc(M.id)} · ${esc(M.time)} <span class="c-saving" id="c-saving"${saving ? '' : ' hidden'}><span class="spinner sm"></span> Saving…</span></p>
     <div class="c-score">
       <div class="c-team">${crest(teamObj(M.home), 'lg')}<b>${esc(M.home || 'TBD')}</b></div>
       <div class="c-mid"><div class="c-num">${hs}<i>–</i>${as}</div>${pill}</div>
@@ -264,9 +310,9 @@ function drawConsole() {
     <div class="stat-rows">
       ${STAT_ROWS.map(([k, label]) => `
         <div class="stat-row">
-          <span class="st-ctl"><button type="button" data-do="stat" data-stat="${k}" data-side="home" data-d="-1" aria-label="${label} home minus one" ${ready ? '' : 'disabled'}>−</button><b>${stats.home[k] === '' || stats.home[k] == null ? 0 : stats.home[k]}</b><button type="button" data-do="stat" data-stat="${k}" data-side="home" data-d="1" aria-label="${label} home plus one" ${ready ? '' : 'disabled'}>+</button></span>
+          <span class="st-ctl"><button type="button" data-do="stat" data-stat="${k}" data-side="home" data-d="-1" aria-label="${label} home minus one" ${ready ? '' : 'disabled'}>−</button><b>${num(stats.home[k])}</b><button type="button" data-do="stat" data-stat="${k}" data-side="home" data-d="1" aria-label="${label} home plus one" ${ready ? '' : 'disabled'}>+</button></span>
           <span class="st-label">${label}</span>
-          <span class="st-ctl"><button type="button" data-do="stat" data-stat="${k}" data-side="away" data-d="1" aria-label="${label} away plus one" ${ready ? '' : 'disabled'}>+</button><b>${stats.away[k] === '' || stats.away[k] == null ? 0 : stats.away[k]}</b><button type="button" data-do="stat" data-stat="${k}" data-side="away" data-d="-1" aria-label="${label} away minus one" ${ready ? '' : 'disabled'}>−</button></span>
+          <span class="st-ctl"><button type="button" data-do="stat" data-stat="${k}" data-side="away" data-d="1" aria-label="${label} away plus one" ${ready ? '' : 'disabled'}>+</button><b>${num(stats.away[k])}</b><button type="button" data-do="stat" data-stat="${k}" data-side="away" data-d="-1" aria-label="${label} away minus one" ${ready ? '' : 'disabled'}>−</button></span>
         </div>`).join('')}
       <form class="stat-row poss" data-form="poss">
         <span class="st-ctl"><input type="number" name="home" min="0" max="100" inputmode="numeric" value="${poss === '' || poss == null ? '' : poss}" placeholder="50" aria-label="Possession home %">%</span>
@@ -282,9 +328,9 @@ function drawConsole() {
       <li>
         <span class="ev-m">${esc(e.minute ? e.minute + "'" : '–')}</span>
         ${e.kind === 'goal' ? icon('ball', 'ic ic-sm') : `<span class="card-ic ${/red/i.test(e.card) ? 'red' : 'yellow'}"></span>`}
-        <span class="ev-t"><b>${esc(e.kind === 'goal' ? e.scorer : e.player)}</b>
+        <span class="ev-t${e.pending ? ' pending' : ''}"><b>${esc(e.kind === 'goal' ? e.scorer : e.player)}</b>
           <small>${esc(e.team)}${e.kind === 'goal' && e.type ? ' · ' + (e.type === 'OG' ? 'own goal' : 'penalty') : ''}${e.kind === 'goal' && e.assist ? ' · assist ' + esc(e.assist) : ''}${e.kind === 'card' ? ' · ' + esc(e.card) + ' card' : ''}</small></span>
-        <button type="button" class="icon-btn sm" data-do="undo" data-kind="${e.kind}" data-row="${e.row}" data-before="${esc(JSON.stringify(e.before))}" aria-label="Remove">${icon('close', 'ic ic-sm')}</button>
+        ${e.pending ? '<span class="spinner sm"></span>' : `<button type="button" class="icon-btn sm" data-do="undo" data-kind="${e.kind}" data-row="${e.row}" data-before="${esc(JSON.stringify(e.before))}" aria-label="Remove">${icon('close', 'ic ic-sm')}</button>`}
       </li>`).join('')}</ul>` : '<p class="muted small">No goals or cards yet.</p>'}
   </div>
 
@@ -326,23 +372,43 @@ function drawConsole() {
       const s = b.dataset.status;
       if (s === '' && !confirm('Reset this match to not started? The score will be cleared (goals and cards stay in the sheet).')) return;
       if (s === 'FT' && !confirm('Full time? The result will count as final.')) return;
-      act(b, () => call('setStatus', { matchId: st.matchId, status: s }), s === 'Live' ? 'Match is live ✓' : s === 'HT' ? 'Half time ✓' : s === 'FT' ? 'Full time ✓' : 'Match reset').then(loadMatch);
+      enqueue({ action: 'setStatus', status: s }, s === 'Live' ? 'Match is live ✓' : s === 'HT' ? 'Half time ✓' : s === 'FT' ? 'Full time ✓' : 'Match reset', (m) => {
+        m.match.status = s;
+        if (s && m.match.hs === '' && m.match.as === '') { m.match.hs = 0; m.match.as = 0; }
+        if (!s) { m.match.hs = ''; m.match.as = ''; }
+      });
     };
   });
   box.querySelectorAll('[data-do="goal"]').forEach((b) => { b.onclick = () => goalSheet(b.dataset.side); });
   box.querySelectorAll('[data-do="card"]').forEach((b) => { b.onclick = () => cardSheet(b.dataset.side, b.dataset.card); });
   box.querySelectorAll('[data-do="stat"]').forEach((b) => {
-    b.onclick = () => act(b, () => call('stat', { matchId: st.matchId, side: b.dataset.side, stat: b.dataset.stat, delta: +b.dataset.d }), 'Updated ✓').then(loadMatch);
+    b.onclick = () => {
+      const side = b.dataset.side, k = b.dataset.stat, d = +b.dataset.d;
+      if (d < 0 && num(st.m.stats[side][k]) === 0) return;
+      enqueue({ action: 'stat', side, stat: k, delta: d }, 'Stats saved ✓', (m) => { m.stats[side][k] = Math.max(0, num(m.stats[side][k]) + d); });
+    };
   });
   box.querySelectorAll('[data-do="undo"]').forEach((b) => {
     b.onclick = () => {
       if (!confirm('Remove this ' + (b.dataset.kind === 'goal' ? 'goal? The score goes down by one.' : 'card?'))) return;
-      const before = JSON.parse(b.dataset.before);
-      act(b, () => call(b.dataset.kind === 'goal' ? 'removeGoal' : 'removeCard', { matchId: st.matchId, row: +b.dataset.row, before }), 'Removed ✓').then(loadMatch);
+      const before = JSON.parse(b.dataset.before), row = +b.dataset.row, kind = b.dataset.kind;
+      enqueue({ action: kind === 'goal' ? 'removeGoal' : 'removeCard', row, before }, 'Removed ✓', (m) => {
+        const list = kind === 'goal' ? m.goals : m.cards;
+        const i = list.findIndex((x) => x.row === row);
+        if (i < 0) return;
+        if (kind === 'goal') { const side = list[i].side === 'away' ? 'as' : 'hs'; m.match[side] = Math.max(0, num(m.match[side]) - 1); }
+        list.splice(i, 1);
+      });
     };
   });
   const poss2 = box.querySelector('[data-form="poss"]');
-  poss2.onsubmit = (e) => { e.preventDefault(); const v = poss2.home.value; if (v === '') return; act(poss2.querySelector('button'), () => call('stat', { matchId: st.matchId, side: 'home', stat: 'Possession', value: +v }), 'Possession saved ✓').then(loadMatch); };
+  poss2.onsubmit = (e) => {
+    e.preventDefault();
+    const v = poss2.home.value;
+    if (v === '') return;
+    const h = Math.max(0, Math.min(100, +v));
+    enqueue({ action: 'stat', side: 'home', stat: 'Possession', value: h }, 'Possession saved ✓', (m) => { m.stats.home.Possession = h; m.stats.away.Possession = 100 - h; });
+  };
   const motm = box.querySelector('[data-form="motm"]');
   motm.player.onchange = () => { motm.newName.hidden = !motm.player.value.endsWith(NEW); };
   motm.onsubmit = (e) => {
@@ -350,14 +416,15 @@ function drawConsole() {
     const [s, p] = motm.player.value ? motm.player.value.split('|') : ['', ''];
     const name = p === NEW ? motm.newName.value.trim() : p;
     if (p === NEW && !name) { toast('Type the player\'s name', 'err'); return; }
-    act(motm.querySelector('button'), () => call('setMotm', { matchId: st.matchId, player: name, side: s }), name ? 'Man of the Match saved ✓' : 'Cleared').then(loadMatch);
+    enqueue({ action: 'setMotm', player: name, side: s }, name ? 'Man of the Match saved ✓' : 'Cleared', (m) => { m.match.motm = name; if (name && p === NEW) m.squads[s].push({ name, number: '' }); });
   };
   const note = box.querySelector('[data-form="note"]');
-  if (note) note.onsubmit = (e) => { e.preventDefault(); act(note.querySelector('button'), () => call('setNote', { matchId: st.matchId, note: note.note.value }), 'Note saved ✓').then(loadMatch); };
+  if (note) note.onsubmit = (e) => { e.preventDefault(); const v = note.note.value; enqueue({ action: 'setNote', note: v }, 'Note saved ✓', (m) => { m.match.note = v; }); };
   const score = box.querySelector('[data-form="score"]');
   score.onsubmit = (e) => {
     e.preventDefault();
-    act(score.querySelector('button[type=submit]'), () => call('setScore', { matchId: st.matchId, home: score.home.value, away: score.away.value }), 'Score saved ✓').then(loadMatch);
+    const h = score.home.value, a = score.away.value;
+    enqueue({ action: 'setScore', home: h, away: a }, 'Score saved ✓', (m) => { m.match.hs = h; m.match.as = a; if (!m.match.status && (h !== '' || a !== '')) m.match.status = 'Live'; });
   };
 }
 
@@ -430,8 +497,15 @@ function goalSheet(side) {
     const og = f.type.value === 'Own goal';
     const as = og ? { name: '' } : pickName(f, 'assist', 'a');
     const type = f.type.value === 'Normal' ? '' : f.type.value;
-    act(f.querySelector('button[type=submit]'), () => call('addGoal', { matchId: st.matchId, side, scorer: sc.name, number: sc.number, assist: as.name, type, minute: f.minute.value.trim() }), 'Goal saved ✓')
-      .then((ok) => { if (ok) { closeSheet(); loadMatch(); } });
+    const minute = f.minute.value.trim();
+    closeSheet();
+    enqueue({ action: 'addGoal', side, scorer: sc.name, number: sc.number, assist: as.name, type, minute }, 'Goal saved ✓', (m) => {
+      const k = side === 'home' ? 'hs' : 'as';
+      m.match[k] = num(m.match[k]) + 1;
+      if (!m.match.status) m.match.status = 'Live';
+      if (m.match[k === 'hs' ? 'as' : 'hs'] === '') m.match[k === 'hs' ? 'as' : 'hs'] = 0;
+      m.goals.push({ pending: true, side, team: m.match[side], scorer: sc.name, assist: as.name, minute, type: type === 'Own goal' ? 'OG' : type });
+    });
   };
 }
 
@@ -452,8 +526,11 @@ function cardSheet(side, card) {
     e.preventDefault();
     const p = pickName(f, 'player', 'p');
     if (!p.name) { toast('Which player?', 'err'); return; }
-    act(f.querySelector('button[type=submit]'), () => call('addCard', { matchId: st.matchId, side, player: p.name, number: p.number, card, minute: f.minute.value.trim() }), card + ' card saved ✓')
-      .then((ok) => { if (ok) { closeSheet(); loadMatch(); } });
+    const minute = f.minute.value.trim();
+    closeSheet();
+    enqueue({ action: 'addCard', side, player: p.name, number: p.number, card, minute }, card + ' card saved ✓', (m) => {
+      m.cards.push({ pending: true, side, team: m.match[side], player: p.name, card, minute });
+    });
   };
 }
 
@@ -465,6 +542,7 @@ function tabFixtures(el) {
   const q = model.qual;
   const teamSel = (name, current) => `<select name="${name}"><option value="">TBD</option>${teams.map((t) => `<option value="${esc(t.full)}"${current && teamKey(current) === t.key ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`;
   el.innerHTML = `
+    <div id="draw"></div>
     <div class="card pad note-card"><p>Change kick-off times here, and fill in the knockout teams once the groups are done. Times are on <b>${esc(model.cfg.matchdate || 'match day')}</b> (change the date under Info &amp; settings → Config → MatchDate).</p></div>
     ${model.anyPlayed ? `<div class="card pad"><h3 class="a-h">Qualified so far${q.allComplete ? '' : ' (provisional)'}</h3>
       <p class="q-inline">${q.list.map((x) => `<span><b>${esc(x.label)}</b> ${esc(x.team.name)}</span>`).join('')}</p></div>` : ''}
@@ -485,6 +563,81 @@ function tabFixtures(el) {
       act(f.querySelector('button'), () => call('setFixture', { matchId: f.dataset.id, values }), f.dataset.id + ' saved ✓').then(() => { st.matches = null; });
     };
   });
+  return drawSection(el.querySelector('#draw'));
+}
+
+/* ================================================================= draws */
+
+const shuffle = (a) => { const x = a.slice(); for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
+
+async function drawSection(box) {
+  box.innerHTML = loadingHtml('Checking the draw…');
+  const fx = await call('fixtures');
+  const sizes = {};
+  fx.teams.forEach((t) => { sizes[t.group] = (sizes[t.group] || 0) + 1; });
+  const ids = Object.keys(sizes).filter(Boolean).sort();
+  const q = model.qual;
+  const koReady = q.allComplete && q.list.length === 8;
+  box.innerHTML = `
+    <div class="card pad draw-card">
+      <h3 class="a-h">🎲 Group draw</h3>
+      ${fx.started
+        ? '<p class="muted small">The group stage has started, so the groups are locked.</p>'
+        : `<p class="muted small">Randomly reshuffle the ${fx.teams.length} teams into groups ${ids.join(', ')} (${ids.map((g) => sizes[g]).join('/')} teams). All group fixtures are rebuilt with the same kick-off times.</p>
+           <button type="button" class="btn" id="gd-go">Reshuffle groups</button>`}
+      <div id="gd-preview"></div>
+    </div>
+    <div class="card pad draw-card">
+      <h3 class="a-h">🎲 Knockout draw</h3>
+      ${fx.koStarted ? '<p class="muted small">A quarterfinal has started, so the draw is locked.</p>'
+        : koReady ? `<p class="muted small">Randomly pair the 8 qualified teams into QF1–QF4, keeping teams from the same group apart where possible.</p>
+           <button type="button" class="btn" id="kd-go">Draw the quarterfinals</button>`
+          : '<p class="muted small">Available once every group match is at full time and the 8 qualified teams are confirmed.</p>'}
+      <div id="kd-preview"></div>
+    </div>`;
+
+  const gd = box.querySelector('#gd-go');
+  if (gd) {
+    const roll = () => {
+      const pool = shuffle(fx.teams.map((t) => t.name));
+      const groups = {}; let i = 0;
+      ids.forEach((g) => { groups[g] = pool.slice(i, i + sizes[g]); i += sizes[g]; });
+      const pv = box.querySelector('#gd-preview');
+      pv.innerHTML = `
+        <div class="draw-groups">${ids.map((g) => `<div><b>Group ${g}</b><ol>${groups[g].map((n) => `<li>${esc(n.replace(/\s*\d{4}\s*[-–]\s*\d{2,4}\s*$/, ''))}</li>`).join('')}</ol></div>`).join('')}</div>
+        <div class="draw-actions"><button type="button" class="btn-ghost" id="gd-again">Shuffle again</button><button type="button" class="btn" id="gd-use">Use this draw</button></div>`;
+      pv.querySelector('#gd-again').onclick = roll;
+      pv.querySelector('#gd-use').onclick = (e) => {
+        if (!confirm('Use this draw? The groups and all group fixtures will be replaced.')) return;
+        act(e.target, () => call('groupDraw', { groups }), 'New groups saved ✓').then((ok) => { if (ok) { st.matches = null; pv.innerHTML = '<p class="muted small">Saved — the fixtures below update in a few seconds.</p>'; } });
+      };
+    };
+    gd.onclick = roll;
+  }
+
+  const kd = box.querySelector('#kd-go');
+  if (kd) {
+    const roll = () => {
+      const teams = q.list.map((x) => x.team);
+      let best = null;
+      for (let t = 0; t < 400 && !best; t++) {
+        const p = shuffle(teams);
+        const pairs = [[p[0], p[1]], [p[2], p[3]], [p[4], p[5]], [p[6], p[7]]];
+        if (pairs.every(([a, b]) => a.group !== b.group)) best = pairs;
+        if (t === 399) best = pairs;
+      }
+      const pv = box.querySelector('#kd-preview');
+      pv.innerHTML = `
+        <ul class="draw-ko">${best.map(([a, b], i) => `<li><b>QF${i + 1}</b> ${esc(a.name)} <span class="muted">v</span> ${esc(b.name)}</li>`).join('')}</ul>
+        <div class="draw-actions"><button type="button" class="btn-ghost" id="kd-again">Shuffle again</button><button type="button" class="btn" id="kd-use">Use this draw</button></div>`;
+      pv.querySelector('#kd-again').onclick = roll;
+      pv.querySelector('#kd-use').onclick = (e) => {
+        if (!confirm('Use this draw for the quarterfinals?')) return;
+        act(e.target, () => call('koDraw', { pairs: best.map(([a, b]) => [a.full, b.full]) }), 'Quarterfinals drawn ✓').then((ok) => { if (ok) { st.matches = null; pv.innerHTML = '<p class="muted small">Saved — see the Knockouts page.</p>'; } });
+      };
+    };
+    kd.onclick = roll;
+  }
 }
 
 /* ======================================================= generic editor */
