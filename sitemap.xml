@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/matches</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/groups</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/table</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/knockout</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/stats</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/teams</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/gallery</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/info</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/awards</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://kyogyera-league.kiizapeterson256.workers.dev/history</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+</urlset>

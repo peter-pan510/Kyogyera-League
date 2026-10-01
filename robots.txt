@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /print
+Disallow: /poster
+Disallow: /check
+
+Sitemap: https://kyogyera-league.kiizapeterson256.workers.dev/sitemap.xml
