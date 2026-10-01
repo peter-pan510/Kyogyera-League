@@ -39,6 +39,8 @@ document.getElementById('print').onclick = () => window.print();
 // Picture version (1080×1350) to post on WhatsApp status and groups.
 document.getElementById('png').onclick = async () => {
   if (!model) return;
+  // Canvas text only uses a web font once it's loaded, so load the ones we draw with first.
+  await Promise.all(['800 104px "Barlow Condensed"', '700 30px Inter', '600 30px Inter', '500 26px Inter'].map((f) => document.fonts.load(f).catch(() => {})));
   await document.fonts.ready;
   const W = 1080, H = 1350;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -58,8 +60,12 @@ document.getElementById('png').onclick = async () => {
   x.fillStyle = '#0b1638';
   for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) if (q.isDark(r, col)) x.fillRect(ox + col * cell, oy + r * cell, Math.ceil(cell), Math.ceil(cell));
   x.fillStyle = '#fff'; x.font = '800 54px "Barlow Condensed"'; x.fillText('SCAN FOR LIVE SCORES', W / 2, 1200);
-  x.fillStyle = '#cdd7f5'; x.font = '600 30px Inter'; x.fillText(SITE.replace(/^https?:\/\//, '').replace(/\/$/, ''), W / 2, 1250);
-  x.fillStyle = '#9aa8cf'; x.font = '500 26px Inter'; x.fillText(model.cfg.venue || 'Kitabuguma Playground, Bishop McAllister, Sheema', W / 2, 1300);
+  // The site link, as big as fits the width.
+  const link = SITE.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  let fs = 44;
+  do { x.font = `700 ${fs}px Inter`; } while (x.measureText(link).width > W - 80 && --fs > 20);
+  x.fillStyle = '#ffdd85'; x.fillText(link, W / 2, 1255);
+  x.fillStyle = '#9aa8cf'; x.font = '500 26px Inter'; x.fillText(model.cfg.venue || 'Kitabuguma Playground, Bishop McAllister, Sheema', W / 2, 1310);
   const blob = await new Promise((r) => cv.toBlob(r, 'image/png'));
   const file = new File([blob], 'kyogyera-league-qr.png', { type: 'image/png' });
   if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file] }); return; } catch (e) { if (e.name === 'AbortError') return; } }
