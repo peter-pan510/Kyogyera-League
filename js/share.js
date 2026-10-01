@@ -6,25 +6,67 @@ const W = 1080;
 const FONT_D = '"Barlow Condensed", "Arial Narrow", sans-serif';
 const FONT_B = 'Inter, system-ui, sans-serif';
 
-function loadImg(src) {
+function loadImg(src, cors) {
   return new Promise((resolve) => {
     const i = new Image();
+    if (cors) i.crossOrigin = 'anonymous'; // photos from other sites must allow it, or they're skipped
     i.onload = () => resolve(i);
     i.onerror = () => resolve(null);
     i.src = src;
   });
 }
 
-async function base(ctx) {
-  // navy background with a soft glow and a few stars
-  const g = ctx.createLinearGradient(0, 0, 0, W);
+// Canvas text only uses a web font once it's loaded, so load the ones we draw with first.
+async function fontsReady() {
+  if (!document.fonts) return;
+  await Promise.all([`800 64px ${FONT_D}`, `700 30px ${FONT_B}`, `600 30px ${FONT_B}`, `500 28px ${FONT_B}`].map((f) => document.fonts.load(f).catch(() => {})));
+  await document.fonts.ready;
+}
+
+/* ---- faint photo collage behind every shared picture (a fresh shuffle each time) */
+let photoPool = null;
+async function photoList(model) {
+  if (!photoPool) {
+    const list = ((model && model.photos) || []).map((p) => p.thumb).filter(Boolean);
+    photoPool = (await Promise.all(list.map((src) => loadImg(src, /^https?:/.test(src))))).filter(Boolean);
+  }
+  return photoPool;
+}
+const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+function cover(ctx, img, dx, dy, dw, dh) {
+  const s = Math.max(dw / img.width, dh / img.height), sw = dw / s, sh = dh / s;
+  ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, dx, dy, dw, dh);
+}
+
+/** Navy background with league photos showing faintly through. Returns true if photos were drawn. */
+export async function photoBackdrop(ctx, model, w, h, cols = 4) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
   g.addColorStop(0, '#0b1a4a'); g.addColorStop(1, '#050b1f');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, W);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  const pics = await photoList(model);
+  if (!pics.length) return false;
+  const tw = w / cols, rows = Math.round(h / tw), th = h / rows;
+  let deck = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    if (!deck.length) deck = shuffle(pics);
+    cover(ctx, deck.pop(), c * tw + 3, r * th + 3, tw - 6, th - 6);
+  }
+  const veil = ctx.createLinearGradient(0, 0, 0, h);
+  veil.addColorStop(0, 'rgba(11,26,74,0.72)'); veil.addColorStop(0.45, 'rgba(8,18,52,0.8)'); veil.addColorStop(1, 'rgba(5,11,31,0.86)');
+  ctx.fillStyle = veil; ctx.fillRect(0, 0, w, h);
+  return true;
+}
+
+async function base(ctx, model) {
+  const withPhotos = await photoBackdrop(ctx, model, W, W);
   const r = ctx.createRadialGradient(W / 2, 0, 50, W / 2, 0, 700);
   r.addColorStop(0, 'rgba(62,166,255,0.35)'); r.addColorStop(1, 'rgba(62,166,255,0)');
   ctx.fillStyle = r; ctx.fillRect(0, 0, W, W);
-  ctx.fillStyle = 'rgba(220,230,255,0.7)';
-  for (let i = 0; i < 60; i++) { const x = (i * 197) % W, y = (i * 331) % W; ctx.beginPath(); ctx.arc(x, y, (i % 3) * 0.7 + 0.8, 0, 7); ctx.fill(); }
+  if (!withPhotos) { // no photos yet: a few stars instead
+    ctx.fillStyle = 'rgba(220,230,255,0.7)';
+    for (let i = 0; i < 60; i++) { const x = (i * 197) % W, y = (i * 331) % W; ctx.beginPath(); ctx.arc(x, y, (i % 3) * 0.7 + 0.8, 0, 7); ctx.fill(); }
+  }
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 12; // keeps text readable over the photos
   const badge = await loadImg('assets/kyogyera-badge-400.webp');
   if (badge) ctx.drawImage(badge, W / 2 - 90, 40, 180, 180);
   ctx.textAlign = 'center';
@@ -34,6 +76,7 @@ async function base(ctx) {
 }
 
 function footer(ctx, text) {
+  ctx.shadowBlur = 0;
   ctx.fillStyle = 'rgba(242,193,78,0.14)';
   ctx.fillRect(0, W - 110, W, 110);
   ctx.fillStyle = '#cdd7f5';
@@ -42,7 +85,7 @@ function footer(ctx, text) {
   ctx.fillText(text, W / 2, W - 62);
   ctx.fillStyle = '#9aa8cf';
   ctx.font = `500 24px ${FONT_B}`;
-  ctx.fillText(location.host + location.pathname.replace(/[^/]*$/, ''), W / 2, W - 28);
+  ctx.fillText(((window.KYOGYERA_CONFIG || {}).SITE_URL || location.host + location.pathname.replace(/[^/]*$/, '')).replace(/^https?:\/\//, '').replace(/\/$/, ''), W / 2, W - 28);
 }
 
 function fit(ctx, text, maxW, size, weight = 800, font = FONT_D) {
@@ -63,10 +106,10 @@ async function crest(ctx, team, x, y, r) {
 }
 
 export async function matchCardImage(m, model) {
-  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  await fontsReady();
   const c = document.createElement('canvas'); c.width = W; c.height = W;
   const ctx = c.getContext('2d');
-  await base(ctx);
+  await base(ctx, model);
   ctx.fillStyle = '#3ea6ff'; ctx.font = `700 34px ${FONT_B}`; ctx.textAlign = 'center';
   const status = m.live ? (m.status === 'HT' ? 'HALF TIME' : 'LIVE') : m.played ? 'FULL TIME' : `KICK-OFF ${kickoff(m) || 'TBC'}`;
   ctx.fillText(`${stageLabel(m).toUpperCase()} · ${status}`, W / 2, 345);
@@ -95,10 +138,10 @@ export async function matchCardImage(m, model) {
 }
 
 export async function awardCardImage(title, name, sub, model) {
-  if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  await fontsReady();
   const c = document.createElement('canvas'); c.width = W; c.height = W;
   const ctx = c.getContext('2d');
-  await base(ctx);
+  await base(ctx, model);
   ctx.fillStyle = '#3ea6ff'; ctx.font = `700 36px ${FONT_B}`; ctx.textAlign = 'center';
   ctx.fillText((model.cfg.season || '').toUpperCase(), W / 2, 345);
   ctx.fillStyle = '#ffdd85'; fit(ctx, title.toUpperCase(), 900, 96); ctx.fillText(title.toUpperCase(), W / 2, 500);

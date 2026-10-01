@@ -1,6 +1,7 @@
 /* QR-code poster: A4, prints to PDF, plus a picture version for WhatsApp. */
 import { start } from '../data.js';
 import { fmtDate } from '../ui.js';
+import { photoBackdrop } from '../share.js';
 
 const CFG = window.KYOGYERA_CONFIG || {};
 const SITE = CFG.SITE_URL || new URL('./', location.href).href;
@@ -38,26 +39,8 @@ document.getElementById('print').onclick = () => window.print();
 
 // Picture version (1080×1350) to post on WhatsApp status and groups:
 // a faint collage of league photos behind the poster, reshuffled on demand.
-const W = 1080, H = 1350, COLS = 4, ROWS = 5;
-const loadImg = (src, cors) => new Promise((r) => {
-  const i = new Image();
-  if (cors) i.crossOrigin = 'anonymous'; // photos from other sites must allow it, or they're skipped
-  i.onload = () => r(i); i.onerror = () => r(null); i.src = src;
-});
-let photoPool = null;
-async function photos() {
-  if (!photoPool) {
-    const list = (model.photos || []).map((p) => p.thumb).filter(Boolean);
-    photoPool = (await Promise.all(list.map((src) => loadImg(src, /^https?:/.test(src))))).filter(Boolean);
-  }
-  return photoPool;
-}
-const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-
-function cover(x, img, dx, dy, dw, dh) {
-  const s = Math.max(dw / img.width, dh / img.height), sw = dw / s, sh = dh / s;
-  x.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, dx, dy, dw, dh);
-}
+const W = 1080, H = 1350;
+const loadImg = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
 
 async function drawPicture() {
   // Canvas text only uses a web font once it's loaded, so load the ones we draw with first.
@@ -65,22 +48,8 @@ async function drawPicture() {
   await document.fonts.ready;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const x = cv.getContext('2d');
-  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0b1a4a'); g.addColorStop(1, '#050b1f');
-  x.fillStyle = g; x.fillRect(0, 0, W, H);
-
-  // Photo collage, then a navy veil so the text and QR stay crisp.
-  const pics = await photos();
-  if (pics.length) {
-    let deck = [];
-    const tw = W / COLS, th = H / ROWS;
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-      if (!deck.length) deck = shuffle(pics);
-      cover(x, deck.pop(), c * tw + 3, r * th + 3, tw - 6, th - 6);
-    }
-    const veil = x.createLinearGradient(0, 0, 0, H);
-    veil.addColorStop(0, 'rgba(11,26,74,0.72)'); veil.addColorStop(0.45, 'rgba(8,18,52,0.8)'); veil.addColorStop(1, 'rgba(5,11,31,0.86)');
-    x.fillStyle = veil; x.fillRect(0, 0, W, H);
-  }
+  // League photos showing faintly through, a new mix every time.
+  await photoBackdrop(x, model, W, H);
 
   const badge = await loadImg('assets/kyogyera-badge-400.webp');
   if (badge) x.drawImage(badge, W / 2 - 130, 50, 260, 260);
