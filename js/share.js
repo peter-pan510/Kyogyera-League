@@ -23,36 +23,30 @@ async function fontsReady() {
   await document.fonts.ready;
 }
 
-/* ---- faint photo collage behind every shared picture (a fresh shuffle each time) */
-let photoPool = null;
-async function photoList(model) {
-  if (!photoPool) {
-    const list = ((model && model.photos) || []).map((p) => p.thumb).filter(Boolean);
-    photoPool = (await Promise.all(list.map((src) => loadImg(src, /^https?:/.test(src))))).filter(Boolean);
-  }
-  return photoPool;
-}
-const shuffle = (a) => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+/* ---- one dim crowd / playground photo behind every shared picture */
+const CFG = window.KYOGYERA_CONFIG || {};
+const SHARE_PHOTOS = (CFG.SHARE_PHOTOS || ['sn1-17.jpg', 'sn1-04.jpg', 'sn1-02.jpg', 'sn1-19.jpg'])
+  .map((f) => (/^(https?:)?\/\/|\//.test(f) ? f : 'assets/photos/' + f));
+let lastPhoto = -1;
 function cover(ctx, img, dx, dy, dw, dh) {
   const s = Math.max(dw / img.width, dh / img.height), sw = dw / s, sh = dh / s;
   ctx.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, dx, dy, dw, dh);
 }
 
-/** Navy background with league photos showing faintly through. Returns true if photos were drawn. */
-export async function photoBackdrop(ctx, model, w, h, cols = 4) {
+/** Navy background with one of the crowd photos very dim behind it (a different one each time). */
+export async function photoBackdrop(ctx, model, w, h) {
   const g = ctx.createLinearGradient(0, 0, 0, h);
   g.addColorStop(0, '#0b1a4a'); g.addColorStop(1, '#050b1f');
   ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-  const pics = await photoList(model);
-  if (!pics.length) return false;
-  const tw = w / cols, rows = Math.round(h / tw), th = h / rows;
-  let deck = [];
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    if (!deck.length) deck = shuffle(pics);
-    cover(ctx, deck.pop(), c * tw + 3, r * th + 3, tw - 6, th - 6);
-  }
+  if (!SHARE_PHOTOS.length) return false;
+  let i = Math.floor(Math.random() * SHARE_PHOTOS.length);
+  if (SHARE_PHOTOS.length > 1 && i === lastPhoto) i = (i + 1) % SHARE_PHOTOS.length;
+  lastPhoto = i;
+  const img = await loadImg(SHARE_PHOTOS[i], /^https?:/.test(SHARE_PHOTOS[i]));
+  if (!img) return false;
+  cover(ctx, img, 0, 0, w, h);
   const veil = ctx.createLinearGradient(0, 0, 0, h);
-  veil.addColorStop(0, 'rgba(11,26,74,0.72)'); veil.addColorStop(0.45, 'rgba(8,18,52,0.8)'); veil.addColorStop(1, 'rgba(5,11,31,0.86)');
+  veil.addColorStop(0, 'rgba(11,26,74,0.84)'); veil.addColorStop(0.5, 'rgba(8,18,52,0.88)'); veil.addColorStop(1, 'rgba(5,11,31,0.92)');
   ctx.fillStyle = veil; ctx.fillRect(0, 0, w, h);
   return true;
 }

@@ -54,6 +54,9 @@ window.KYOGYERA_CONFIG = {
   // Teams, players, info, photos and sponsors change rarely — re-downloaded this often.
   SLOW_REFRESH_SECONDS: 300,
 
+  // Photos (in assets/photos) shown very dim behind the WhatsApp pictures — one per picture, picked at random.
+  SHARE_PHOTOS: ['sn1-17.jpg', 'sn1-04.jpg', 'sn1-02.jpg', 'sn1-19.jpg'],
+
   // Qualification: top N per group go through. The best third-placed teams fill
   // the rest of the 8-team bracket automatically (3 groups -> 2 thirds, 4 groups -> none).
   QUALIFY_TOP_PER_GROUP: 2,

@@ -38,7 +38,7 @@ function draw() {
 document.getElementById('print').onclick = () => window.print();
 
 // Picture version (1080×1350) to post on WhatsApp status and groups:
-// a faint collage of league photos behind the poster, reshuffled on demand.
+// one dim crowd photo behind the poster, changeable in the preview.
 const W = 1080, H = 1350;
 const loadImg = (src) => new Promise((r) => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = src; });
 
@@ -48,7 +48,7 @@ async function drawPicture() {
   await document.fonts.ready;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const x = cv.getContext('2d');
-  // League photos showing faintly through, a new mix every time.
+  // One crowd photo, very dim, a different one each time.
   await photoBackdrop(x, model, W, H);
 
   const badge = await loadImg('assets/kyogyera-badge-400.webp');
