@@ -1113,7 +1113,7 @@ function tabPrint(el) {
       <div class="print-links">
         <a class="btn" href="${href('print.html?part=standings')}" target="_blank">Standings</a>
         <a class="btn" href="${href('print.html?part=groups')}" target="_blank">Group performance</a>
-        <a class="btn" href="${href('print.html?part=stats')}" target="_blank">Stats</a>
+        <a class="btn" href="${href('print.html?part=stats')}" target="_blank">Statistics</a>
         <a class="btn" href="${href('print.html?part=all')}" target="_blank">Whole document</a>
       </div>
     </div>`;

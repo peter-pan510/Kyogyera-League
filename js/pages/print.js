@@ -10,7 +10,7 @@ const SITE = CFG.SITE_URL || new URL('./', location.href).href;
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const qrSvg = (t) => { const q = window.qrcode(0, 'M'); q.addData(t); q.make(); return q.createSvgTag({ cellSize: 3, margin: 0, scalable: true }); };
 
-const PARTS = [['standings', 'Standings'], ['groups', 'Group performance'], ['stats', 'Stats'], ['all', 'Whole document']];
+const PARTS = [['standings', 'Standings'], ['groups', 'Group performance'], ['stats', 'Statistics'], ['all', 'Whole document']];
 const TITLES = { standings: 'Standings', groups: 'Group performance', stats: 'Statistics', all: 'Schedule, results & stats' };
 const paper = document.getElementById('paper');
 const bar = document.getElementById('parts');
@@ -53,6 +53,7 @@ function draw() {
   };
   const now = new Date().toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   document.title = `${TITLES[part]} · Kyogyera League`;
+  paper.dataset.part = part;
   paper.innerHTML = `
     <header class="p-head">
       <img src="assets/kyogyera-badge-256.png" alt="">
@@ -141,12 +142,12 @@ function form(team, matches) {
 function stats() {
   const t = model.tournament;
   const board = (title, list, value, label) => {
-    const rows = list.filter((p) => value(p) > 0).sort((a, b) => value(b) - value(a) || a.name.localeCompare(b.name)).slice(0, 10);
+    const rows = list.filter((p) => value(p) > 0).sort((a, b) => value(b) - value(a) || a.name.localeCompare(b.name)).slice(0, part === 'stats' ? 6 : 8);
     return `<div class="avoid-break"><h3>${title}</h3>${rows.length ? `<table class="gt"><thead><tr><th>#</th><th>Player</th><th>Team</th><th class="c">${label}</th></tr></thead>
       <tbody>${rows.map((p, i) => `<tr><td>${i + 1}</td><td>${esc(p.name)}</td><td>${esc(p.team ? p.team.name : '')}</td><td class="c"><b>${value(p)}</b></td></tr>`).join('')}</tbody></table>` : '<p class="legend-p">None yet.</p>'}</div>`;
   };
   const teams = [...model.teamList].sort((a, b) => b.stats.gf - a.stats.gf || a.stats.ga - b.stats.ga || a.name.localeCompare(b.name));
-  return `<h2>Statistics</h2>
+  return `<section class="stats-p"><h2>Statistics</h2>
     <div class="glance-p">
       <div><b>${t.played}<small>/${t.total}</small></b>Matches played</div>
       <div><b>${t.goals}</b>Goals</div>
@@ -167,5 +168,5 @@ function stats() {
       <thead><tr><th>Team</th><th class="c">P</th><th class="c">W</th><th class="c">D</th><th class="c">L</th><th class="c">GF</th><th class="c">GA</th><th class="c">GD</th><th class="c">CS</th><th class="c">YC</th><th class="c">RC</th></tr></thead>
       <tbody>${teams.map((tm) => { const s = tm.stats; return `<tr><td>${esc(tm.name)}</td><td class="c">${s.p}</td><td class="c">${s.w}</td><td class="c">${s.d}</td><td class="c">${s.l}</td><td class="c">${s.gf}</td><td class="c">${s.ga}</td><td class="c">${signed(s.gd)}</td><td class="c">${s.cs}</td><td class="c">${s.yellow}</td><td class="c">${s.red}</td></tr>`; }).join('')}</tbody>
     </table>
-    <p class="legend-p">CS = clean sheets · YC / RC = yellow / red cards.</p></div>`;
+    <p class="legend-p">CS = clean sheets · YC / RC = yellow / red cards.</p></div></section>`;
 }

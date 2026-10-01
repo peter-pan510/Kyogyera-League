@@ -30,7 +30,7 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
 .poster .qr { width: 78mm; margin-top: 7mm; padding: 4mm; background: #fff; border-radius: 4mm; }
 .poster .scan { margin: 4mm 0 0; font-size: 20pt; font-weight: 800; color: #fff; }
 .poster .what { margin: 1mm 0 0; font-size: 12.5pt; color: #cdd7f5; }
-.poster .url { margin: 3mm 0 0; font-size: 12pt; font-weight: 700; color: #ffdd85; }
+.poster .url { margin: 3mm 0 0; font-size: 15pt; font-weight: 700; color: #ffdd85; }
 .poster .champs { margin-top: auto; font-size: 12pt; color: #ffdd85; }
 .poster .foot { margin: 2mm 0 0; font-size: 9pt; color: #9aa8cf; }
 
@@ -82,6 +82,8 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
 .glance-p div { border: 0.3mm solid #d6dbe8; border-radius: 2mm; padding: 2mm; text-align: center; font-size: 8pt; color: #47507a; }
 .glance-p b { display: block; font: 800 16pt "Barlow Condensed", sans-serif; color: #0b1a4a; }
 .glance-p small { font-size: 10pt; color: #6b7393; }
+.stats-p td { padding-top: 0.9mm; padding-bottom: 0.9mm; }
+.stats-p .groups { gap: 3mm 6mm; }
 .p-foot { margin-top: 6mm; display: flex; justify-content: space-between; color: #6b7393; font-size: 8pt; border-top: 0.3mm solid #d6dbe8; padding-top: 2mm; }
 .legend-p { margin: 1.5mm 0 0; color: #6b7393; font-size: 8pt; }
 .avoid-break { break-inside: avoid; }
@@ -107,6 +109,7 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
   .paper { page: sheet; width: auto; min-height: 0; padding: 0; }
   .paper tr, .g-results li { break-inside: avoid; }
   .paper h2, .paper h3 { break-after: avoid; }
+  .paper[data-part="all"] .stats-p { break-before: page; }
   .watermark::before { display: none; }
   .watermark img, .watermark span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
