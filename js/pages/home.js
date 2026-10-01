@@ -31,6 +31,7 @@ runPage('home', (model, page) => {
         <span class="chip${model.liveMatches.length ? ' chip-live' : ''}">${model.liveMatches.length ? '<i class="live-dot"></i>' : ''}${esc(phase)}</span>
         ${cfg.lastupdated ? `<span class="chip">Update: ${esc(cfg.lastupdated)}</span>` : ''}
       </div>
+      ${!model.champion && model.defending ? `<a class="defending" href="${href('team.html', { t: model.defending.slug })}">🏆 Defending champions: <b>${esc(model.defending.name)}</b></a>` : ''}
       ${model.champion ? `<a class="champ-banner" href="${href('team.html', { t: model.champion.slug })}">${icon('trophy', 'ic')}<span><small>Champions</small><b>${esc(model.champion.name)}</b></span></a>` : ''}
     </div>
   </section>

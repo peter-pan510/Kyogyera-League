@@ -1,0 +1,67 @@
+/* Printables: QR poster (navy, full bleed) and the schedule & results sheet (white paper). */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, system-ui, sans-serif; color: #0b1638; background: #dfe3ee; }
+.toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; padding: 10px; background: #050b1f; }
+.toolbar a { color: #cdd7f5; text-decoration: none; font-weight: 600; margin-right: auto; }
+.toolbar button { font: 700 14px Inter, sans-serif; padding: 9px 14px; border-radius: 999px; border: 0; cursor: pointer; background: #f2c14e; color: #1b1400; }
+.loading-msg { padding: 40px; text-align: center; }
+h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; margin: 0; }
+.qr svg { display: block; width: 100%; height: auto; }
+
+/* ---- poster */
+.poster {
+  width: 210mm; height: 297mm; margin: 16px auto; overflow: hidden; position: relative;
+  display: flex; flex-direction: column; align-items: center; text-align: center; padding: 16mm 14mm 12mm;
+  color: #eef2ff; background: radial-gradient(160mm 90mm at 50% 0%, rgba(62,166,255,0.35), transparent 70%), linear-gradient(180deg, #0b1a4a, #050b1f);
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+.poster .badge { width: 52mm; height: auto; filter: drop-shadow(0 4mm 8mm rgba(0,0,0,0.5)); }
+.poster .eyebrow { margin: 4mm 0 0; font-weight: 700; letter-spacing: 0.2em; font-size: 12pt; color: #3ea6ff; text-transform: uppercase; }
+.poster h1 { font-size: 64pt; line-height: 0.9; color: #f2c14e; margin-top: 2mm; }
+.poster .season { font-size: 22pt; font-weight: 800; color: #fff; margin-top: 2mm; }
+.poster .date { display: inline-block; margin-top: 5mm; padding: 2.5mm 7mm; border-radius: 999px; border: 0.6mm solid #f2c14e; color: #ffdd85; font-size: 20pt; font-weight: 800; }
+.poster .venue { margin: 3mm 0 0; font-size: 12pt; color: #cdd7f5; }
+.poster .qr { width: 78mm; margin-top: 7mm; padding: 4mm; background: #fff; border-radius: 4mm; }
+.poster .scan { margin: 4mm 0 0; font-size: 20pt; font-weight: 800; color: #fff; }
+.poster .what { margin: 1mm 0 0; font-size: 12.5pt; color: #cdd7f5; }
+.poster .url { margin: 3mm 0 0; font-size: 12pt; font-weight: 700; color: #ffdd85; }
+.poster .champs { margin-top: auto; font-size: 12pt; color: #ffdd85; }
+.poster .foot { margin: 2mm 0 0; font-size: 9pt; color: #9aa8cf; }
+
+/* ---- schedule & results sheet */
+.paper { width: 210mm; min-height: 297mm; margin: 16px auto; padding: 12mm 12mm 14mm; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.2); font-size: 9.5pt; }
+.p-head { display: flex; align-items: center; gap: 5mm; border-bottom: 1mm solid #f2c14e; padding-bottom: 4mm; }
+.p-head img { width: 22mm; height: 22mm; }
+.p-head h1 { font-size: 26pt; color: #0b1a4a; line-height: 1; }
+.p-head p { margin: 1mm 0 0; color: #47507a; }
+.p-head .qr { width: 24mm; margin-left: auto; }
+.paper h2 { font-size: 15pt; color: #0b1a4a; margin: 6mm 0 2mm; border-left: 1.2mm solid #f2c14e; padding-left: 2.5mm; }
+.paper table { width: 100%; border-collapse: collapse; }
+.paper th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.04em; color: #47507a; border-bottom: 0.4mm solid #0b1a4a; padding: 1.2mm 1.5mm; }
+.paper td { padding: 1.3mm 1.5mm; border-bottom: 0.2mm solid #d6dbe8; vertical-align: middle; }
+.paper td.c, .paper th.c { text-align: center; }
+.paper .score { font-weight: 800; text-align: center; white-space: nowrap; }
+.paper .win { font-weight: 700; }
+.paper .stage { color: #47507a; white-space: nowrap; }
+.paper .live { color: #c43d4b; font-weight: 800; }
+.groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+.groups h3 { font-size: 12pt; color: #0b1a4a; margin-bottom: 1mm; }
+.groups .q td:first-child { box-shadow: inset 1mm 0 0 #f2c14e; }
+.groups .q3 td:first-child { box-shadow: inset 1mm 0 0 #3ea6ff; }
+.p-foot { margin-top: 6mm; display: flex; justify-content: space-between; color: #6b7393; font-size: 8pt; border-top: 0.3mm solid #d6dbe8; padding-top: 2mm; }
+.legend-p { margin: 1.5mm 0 0; color: #6b7393; font-size: 8pt; }
+.avoid-break { break-inside: avoid; }
+
+@media screen and (max-width: 820px) {
+  .poster, .paper { transform-origin: top left; margin: 10px; }
+  .paper { width: auto; min-height: 0; padding: 14px; font-size: 12px; }
+  .groups { grid-template-columns: 1fr; }
+}
+@page { size: A4; margin: 0; }
+@media print {
+  body { background: #fff; }
+  .no-print { display: none !important; }
+  .poster, .paper { margin: 0; box-shadow: none; }
+  .paper { padding: 10mm 11mm; }
+}

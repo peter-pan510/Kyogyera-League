@@ -1143,3 +1143,17 @@ a.b-match:hover { border-color: var(--gold); }
 .season-card.now { border-color: var(--gold); }
 .c-saving.offline { color: #ffb4b4; }
 .danger-zone { border-color: rgba(255, 107, 107, 0.5); display: grid; gap: 10px; margin-top: 16px; }
+.defending { display: inline-block; margin-top: 14px; padding: 7px 14px; border-radius: 999px; text-decoration: none; font-size: 13.5px; color: var(--gold-2); border: 1px solid rgba(242, 193, 78, 0.45); background: rgba(242, 193, 78, 0.08); }
+.season-card h2 .team { gap: 12px; }
+.season-card h2 .tname { font-family: var(--font-display); }
+
+/* share icon on match cards */
+.mcard-wrap { position: relative; min-width: 0; }
+.mcard-wrap > .mcard { height: 100%; }
+.mcard-wrap.has-share .mc-meta { padding-right: 36px; }
+.mc-share {
+  position: absolute; top: 7px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: rgba(37, 211, 102, 0.16); color: #25d366;
+}
+.mc-share:hover { background: rgba(37, 211, 102, 0.3); }
+.mc-share.busy { opacity: 0.5; }

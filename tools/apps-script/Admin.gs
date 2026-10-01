@@ -27,7 +27,7 @@ const KL = {
     Teams: ['admin', 'editor'], Players: ['admin', 'editor'], GroupFixtures: ['admin', 'editor'], KnockoutFixtures: ['admin', 'editor'],
   },
   // Tabs/columns the admin service creates by itself if they are missing.
-  AUTO_TABS: { History: ['Season', 'Year', 'Champion', 'RunnerUp', 'TopScorer', 'MOTMKing', 'Notes'] },
+  AUTO_TABS: { History: ['Season', 'Year', 'Champion', 'RunnerUp', 'TopScorer', 'MOTMKing', 'Notes'], Votes: ['Time', 'Kind', 'MatchID', 'Player', 'Team', 'Voter'] },
   AUTO_COLS: { GroupFixtures: ['KickoffAt', 'SecondHalfAt'], KnockoutFixtures: ['KickoffAt', 'SecondHalfAt'], Players: ['Photo'] },
   MATCH_ROLES: ['admin', 'ref'],
   FIXTURE_ROLES: ['admin', 'editor'],
@@ -58,6 +58,9 @@ function klJson(o) {
 function klHandle(req) {
   const a = String(req.action || '');
   if (a === 'login') return klLogin(req.pin);
+  // Public actions (no sign-in): page-view counting and fan votes.
+  if (a === 'hit') return klHit(req);
+  if (a === 'vote') return klVote(req);
   const who = klVerify(req.token);
   const need = (roles) => { if (roles.indexOf(who.role) < 0) throw new Error('Your code is not allowed to do that.'); };
   const tabOk = (tab) => { const r = KL.TAB_ROLES[tab]; if (!r) throw new Error('Unknown tab "' + tab + '".'); need(r); };
@@ -112,6 +115,7 @@ function klHandleOp(a, req, who, withState, need, tabOk) {
     case 'resetCode': need(['admin']); return klWrite(who, () => klResetCode(req.id), 'Reset a code');
     case 'removeCode': need(['admin']); return klWrite(who, () => klRemoveCode(req.id, who), 'Removed a code');
     case 'log': need(['admin']); return klLogRows();
+    case 'visits': need(['admin']); return klVisits();
     case 'resetResults': need(['admin']); return klWrite(who, () => klResetResults(req.clearKnockoutTeams), 'RESET all match results' + (req.clearKnockoutTeams ? ' (and knockout teams)' : ''));
     default: throw new Error('Unknown action.');
   }
@@ -245,7 +249,7 @@ function klSheet(tab) {
     sh = klSS().insertSheet(tab);
     sh.getRange(1, 1, 1, KL.AUTO_TABS[tab].length).setValues([KL.AUTO_TABS[tab]]);
     sh.setFrozenRows(1);
-    if (tab === 'History') sh.appendRow(['Season 1', '2026', '', '', '', '', 'The first Kyogyera League. Add the champions and award winners here.']);
+    if (tab === 'History') sh.appendRow(['Season 1', '2026', 'ABABAAGI FC 2011-2016', '', 'Nyabwina Brian', '', 'The first Kyogyera League.']);
   }
   if (!sh) throw new Error('The sheet has no "' + tab + '" tab — run Kyogyera → 1. Set up tabs & dropdowns.');
   const need = KL.AUTO_COLS[tab];
@@ -707,4 +711,71 @@ function klResetResults(clearKnockoutTeams) {
     if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, Math.max(sh.getLastColumn(), 1)).clearContent();
   });
   return { reset: true };
+}
+
+/* ================================================================ visits */
+
+// Page views and daily visitors, kept privately in Script Properties (one entry
+// per day) — never in the sheet, so only admins can see them.
+function klToday() { return Utilities.formatDate(new Date(), 'Africa/Kampala', 'yyyy-MM-dd'); }
+
+function klHit(req) {
+  const page = String(req.page || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 20) || 'other';
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(1500)) return { counted: false }; // never slow the site down for a count
+  try {
+    const key = 'visits:' + klToday();
+    let d;
+    try { d = JSON.parse(klProps().getProperty(key) || 'null'); } catch (e) { d = null; }
+    d = d || { v: 0, u: 0, p: {} };
+    d.v++;
+    if (req.uniq) d.u++;
+    d.p[page] = (d.p[page] || 0) + 1;
+    klProps().setProperty(key, JSON.stringify(d));
+    return { counted: true };
+  } finally { lock.releaseLock(); }
+}
+
+function klVisits() {
+  const all = klProps().getProperties();
+  const days = Object.keys(all).filter((k) => k.indexOf('visits:') === 0).sort().reverse().slice(0, 90)
+    .map((k) => Object.assign({ day: k.slice(7) }, JSON.parse(all[k])));
+  return { days };
+}
+
+/* ================================================================= votes */
+
+// Fans' Man of the Match (per match, open from kick-off) and Fans' Player of the
+// Tournament. One vote per phone per award; voting again changes the vote.
+function klVote(req) {
+  const kind = req.kind === 'pott' ? 'pott' : req.kind === 'motm' ? 'motm' : '';
+  if (!kind) throw new Error('Unknown vote.');
+  if (String(klConfig('VotingClosed')).toLowerCase() === 'yes') throw new Error('Voting is closed.');
+  const voterRaw = String(req.voter || '');
+  if (!/^[a-z0-9]{12,40}$/i.test(voterRaw)) throw new Error('Bad request.');
+  const voter = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, klSecret() + ':' + voterRaw)).slice(0, 16);
+  const player = String(req.player || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (!player) throw new Error('Pick a player.');
+  let matchId = '', teams = null;
+  if (kind === 'motm') {
+    const m = klFindMatch(req.matchId);
+    if (['Live', 'HT', 'FT'].indexOf(m.v.Status) < 0) throw new Error('Voting opens at kick-off.');
+    matchId = m.v.MatchID;
+    teams = [m.v.TeamHome, m.v.TeamAway];
+  }
+  // Only real squad players can be voted for.
+  const squad = klList('Players').rows.find((r) => klPerson(r.values.Player) === klPerson(player) && (!teams || teams.some((t) => klKey(t) === klKey(r.values.Team))));
+  if (!squad) throw new Error('That player is not in the squad list.');
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(8000)) throw new Error('Busy — try again in a moment.');
+  try {
+    const sh = klSheet('Votes');
+    const head = klHead(sh);
+    const rows = klList('Votes').rows;
+    const mine = rows.find((r) => r.values.Kind === kind && String(r.values.MatchID) === String(matchId) && r.values.Voter === voter);
+    const values = { Time: Utilities.formatDate(new Date(), 'Africa/Kampala', 'yyyy-MM-dd HH:mm:ss'), Kind: kind, MatchID: matchId, Player: squad.values.Player, Team: klShort(squad.values.Team), Voter: voter };
+    if (mine) sh.getRange(mine._row, 1, 1, head.length).setValues([klRowArray(head, values, mine._raw)]);
+    else sh.appendRow(klRowArray(head, values));
+    return { voted: squad.values.Player, changed: !!mine };
+  } finally { lock.releaseLock(); }
 }

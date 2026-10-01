@@ -1,5 +1,6 @@
 import { runPage, esc, href, param, crest, fmtDate, kickoff, stageLabel, placeholderFor, standingsTable, sectionHead, emptyCard, icon, teamColor, photoGrid, playerLink, clockLabel } from '../ui.js';
 import { matchCardImage, shareCanvas } from '../share.js';
+import { voteBlock } from '../votes.js';
 import { chronoCmp, predict } from '../model.js';
 import { compareRow, donut, donutLegend, C } from '../charts.js';
 
@@ -57,6 +58,13 @@ runPage('matches', (model, page) => {
       <h3 class="a-h">⛔ Suspended for this match</h3>
       <ul>${m.suspended.map((x) => `<li>${playerLink(x.player)} <span class="muted small">(${esc(x.team.name)} · red card in ${esc(x.from.id)})</span></li>`).join('')}</ul>
     </div></section>` : ''}
+
+    ${m.played && H && A && (H.squad.length || A.squad.length) ? `<section class="section">${voteBlock({
+      kind: 'motm', matchId: m.id, title: "Fans' Man of the Match",
+      sub: 'Who was the best player on the pitch? Voting is open from kick-off.',
+      groups: [[H.name, H.squad], [A.name, A.squad]], tally: model.motmVotes(m.id), closed: model.votingClosed,
+      official: m.motm ? m.motm.name : '',
+    })}</section>` : ''}
 
     ${m.played ? timeline(m) : ''}
     ${m.played ? statsBlock(m) : ''}

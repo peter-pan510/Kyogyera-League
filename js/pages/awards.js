@@ -1,5 +1,6 @@
 import { runPage, esc, href, pageHero, sectionHead, crest, icon, plural, playerLink, teamLink } from '../ui.js';
 import { awardCardImage, shareCanvas } from '../share.js';
+import { voteBlock } from '../votes.js';
 
 const top = (list, value, tie = () => 0) => {
   const best = Math.max(0, ...list.map(value));
@@ -40,6 +41,12 @@ runPage('awards', (model, page) => {
         </article>`;
       }).join('')}</div>
     </section>
+    ${model.anyPlayed && model.players.some((p) => p.inSquad) ? `<section class="section">${voteBlock({
+      kind: 'pott', title: "Fans' Player of the Tournament",
+      sub: 'Your pick for the best player of the season. One vote per phone — you can change it until voting closes.',
+      groups: [...model.teamList].sort((a, b) => a.name.localeCompare(b.name)).map((t) => [t.name, t.squad]),
+      tally: model.votes.pott, closed: model.votingClosed,
+    })}</section>` : ''}
     <p class="muted small center">Awards are worked out automatically from the results. <a href="${href('stats.html')}">See all stats</a></p>
   </div>`;
   page.querySelectorAll('[data-share]').forEach((b) => {

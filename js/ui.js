@@ -120,7 +120,7 @@ export function mountShell(pageId) {
       <div id="footer-sponsors"></div>
       <p><span id="footer-venue">Kitabuguma Playground, Bishop McAllister, Sheema</span></p>
       <img class="footer-badge" src="${BADGE}" alt="Kyogyera League badge" width="72" height="72" loading="lazy">
-      <p class="muted">Scores update automatically from the official score sheet. · <a href="${href('check.html')}">Data check (admin)</a></p>
+      <p class="muted">Scores update automatically from the official score sheet. · <a href="${href('print.html')}">Printable schedule</a> · <a href="${href('poster.html')}">QR poster</a> · <a href="${href('check.html')}">Data check (admin)</a></p>
     </div>`;
   page.after(footer);
 
@@ -202,6 +202,7 @@ export function runPage(pageId, render) {
   // Start once the page's own script has finished loading: with scores saved on
   // the phone, the first draw happens straight away, and it must not run before
   // the rest of the page script exists.
+  countVisit(pageId);
   queueMicrotask(() => start((model) => {
     applyConfig(model);
     const y = window.scrollY;
@@ -210,7 +211,25 @@ export function runPage(pageId, render) {
   }, setStatus));
 }
 
+// One page view per page load; "new visitor" once per phone per day.
+function countVisit(pageId) {
+  const api = (window.KYOGYERA_CONFIG || {}).ADMIN_API_URL;
+  if (!api || pageId === 'admin' || DEMO || /^(localhost|127\.|0\.0\.0\.0)/.test(location.hostname) || navigator.webdriver || /Headless/i.test(navigator.userAgent)) return;
+  let uniq = false;
+  try {
+    const today = new Date().toDateString();
+    if (localStorage.getItem('kyogyera:seen') !== today) { localStorage.setItem('kyogyera:seen', today); uniq = true; }
+  } catch (e) { /* ignore */ }
+  const body = JSON.stringify({ action: 'hit', page: pageId, uniq });
+  try {
+    if (navigator.sendBeacon && navigator.sendBeacon(api, new Blob([body], { type: 'text/plain' }))) return;
+  } catch (e) { /* fall back */ }
+  fetch(api, { method: 'POST', body, headers: { 'Content-Type': 'text/plain' }, keepalive: true }).catch(() => {});
+}
+
+let lastModel = null;
 function applyConfig(model) {
+  lastModel = model;
   clockHalf = model.halfMinutes || 10;
   goalAlerts(model);
   renderAnnouncementBar(model);
@@ -535,7 +554,8 @@ export function matchCard(m, model, { showStage = true, upNext = false } = {}) {
   const scorers = m.played ? [scorerSummary(m, 'home'), scorerSummary(m, 'away')].filter(Boolean).join(' &nbsp;|&nbsp; ') : '';
   // On a one-day tournament the date is the same for every match, so show the kick-off time instead.
   const when = model.oneDay ? (m.played ? kickoff(m) : '') : (m.played ? '' : fmtDate(m.date, m.dateRaw, { noTime: true }));
-  return `<a class="mcard${m.played ? ' played' : ''}${m.live ? ' is-live' : ''}${upNext ? ' is-next' : ''}${isMine(m.home) || isMine(m.away) ? ' mine' : ''}" href="${href('match.html', { id: m.id })}" id="m-${esc(m.id)}">
+  const canShare = m.home && m.away;
+  return `<div class="mcard-wrap${canShare ? ' has-share' : ''}"><a class="mcard${m.played ? ' played' : ''}${m.live ? ' is-live' : ''}${upNext ? ' is-next' : ''}${isMine(m.home) || isMine(m.away) ? ' mine' : ''}" href="${href('match.html', { id: m.id })}" id="m-${esc(m.id)}">
     <div class="mc-meta">
       ${upNext ? '<span class="tag tag-next">Up next</span>' : ''}
       ${showStage ? `<span class="tag${m.stage === 'ko' ? ' tag-gold' : ''}">${esc(stageLabel(m))}</span>` : ''}
@@ -545,7 +565,7 @@ export function matchCard(m, model, { showStage = true, upNext = false } = {}) {
     ${row('home')}${row('away')}
     ${m.note && m.finished ? `<div class="mc-note">${esc(m.note)}</div>` : ''}
     ${scorers || m.motm ? `<div class="mc-foot">${scorers ? `<span class="mc-goals">${icon('ball', 'ic ic-xs')} ${scorers}</span>` : ''}${m.motm ? `<span class="mc-motm">${icon('star', 'ic ic-xs')} ${esc(m.motm.name)}</span>` : ''}</div>` : ''}
-  </a>`;
+  </a>${canShare ? `<button type="button" class="mc-share" data-share-match="${esc(m.id)}" aria-label="Share ${esc(m.home.name)} v ${esc(m.away.name)} on WhatsApp" title="Share on WhatsApp">${SHARE_ICON}</button>` : ''}</div>`;
 }
 
 const PHASE_LABEL = { GROUP: 'Group stage', QF: 'Quarterfinals', SF: 'Semifinals', FINAL: 'The Final' };
@@ -778,3 +798,25 @@ function showAlert(a, more) {
   clearTimeout(alertTimer);
   alertTimer = setTimeout(() => el.classList.remove('show'), 8000);
 }
+
+/* ---------------------------------------------- share icon on match cards */
+
+const SHARE_ICON = '<svg viewBox="0 0 24 24" class="ic ic-sm" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.2 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.3-.3.6-.3.8-.3h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .6l-.4.6-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.4 2.4 1.5.3.1.5.1.7-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.6.3.1.2.1.8-.1 1.4z"/></svg>';
+
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-share-match]');
+  if (!b || !lastModel) return;
+  e.preventDefault();
+  const m = lastModel.match(b.dataset.shareMatch);
+  if (!m) return;
+  b.disabled = true;
+  b.classList.add('busy');
+  try {
+    const { matchCardImage, shareCanvas } = await import('./share.js');
+    const canvas = await matchCardImage(m, lastModel);
+    const how = await shareCanvas(canvas, `kyogyera-${m.id}.png`, `${m.home.name} ${m.played ? m.hs + '–' + m.as : 'v'} ${m.away.name} · Kyogyera League ${new URL(href('match.html', { id: m.id }), location.href).href}`);
+    if (how === 'downloaded') b.title = 'Picture saved — share it from your photos';
+  } catch (err) { console.error(err); }
+  b.disabled = false;
+  b.classList.remove('busy');
+});

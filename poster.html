@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QR poster · Kyogyera League</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="assets/favicon-64.png">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="print.css">
+</head>
+<body class="poster-page">
+  <div class="toolbar no-print">
+    <a href="index.html">← Back to the site</a>
+    <button type="button" id="print">🖨️ Print / Save as PDF</button>
+    <button type="button" id="png">⬇️ Picture for WhatsApp</button>
+  </div>
+  <main class="poster" id="poster"><p class="loading-msg">Loading…</p></main>
+  <script src="config.js"></script>
+  <script src="js/vendor/qrcode.js"></script>
+  <script type="module" src="js/pages/poster.js"></script>
+</body>
+</html>

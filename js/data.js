@@ -30,7 +30,8 @@ export const TABS = {
   photos: { tab: 'Photos', expect: [['url', 'photo', 'link']] },
   sponsors: { tab: 'Sponsors', expect: [['logo', 'sponsor']] },
   ads: { tab: 'Ads', live: true, expect: [['message'], ['whatsapp', 'call', 'link']] },
-  history: { tab: 'History', expect: [['season'], ['champion']] },
+  history: { tab: 'History', expect: [['season'], ['champion']], localFallback: true },
+  votes: { tab: 'Votes', live: true, expect: [['kind'], ['voter']] },
 };
 const KEYS = Object.keys(TABS);
 const CACHE_KEY = 'kyogyera:raw:v2:' + (DEMO ? 'demo' : 'live');
@@ -96,12 +97,18 @@ export function sourceFor(key) {
   return { url: 'data/' + TABS[key].tab + '.csv', kind: 'local' };
 }
 
+// Built-in copy in /data, for tabs the sheet may not have yet (e.g. History).
+async function fetchLocal(key) {
+  try { const r = await fetch('data/' + TABS[key].tab + '.csv', { cache: 'no-store' }); return r.ok ? await r.text() : ''; } catch (e) { return ''; }
+}
+
 export async function fetchTab(key) {
   const { url, kind } = sourceFor(key);
   const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_=' + Date.now(), { cache: 'no-store' });
   const name = TABS[key].tab;
   if (!res.ok) {
     // Missing optional tabs are fine — the feature just stays hidden.
+    if (TABS[key].localFallback && kind === 'sheet') return fetchLocal(key);
     if (!TABS[key].required && (res.status === 404 || (kind === 'sheet' && res.status === 400))) return '';
     throw new Error(`${name}: HTTP ${res.status}`);
   }
@@ -115,6 +122,7 @@ export async function fetchTab(key) {
   // Google's live export silently returns the FIRST tab when a tab name doesn't exist,
   // so check the header row really belongs to this tab.
   if (text.trim() && !hasExpectedColumns(key, text)) {
+    if (TABS[key].localFallback) return fetchLocal(key);
     if (!TABS[key].required) return '';
     throw new Error(`${name}: tab not found or its header row is wrong (row 1 must have the column names).`);
   }

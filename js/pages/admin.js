@@ -14,6 +14,8 @@ const SECTIONS = [
   ['info', 'Info & settings', ['admin']],
   ['announce', 'Announcements', ['admin']],
   ['sponsors', 'Sponsors & ads', ['admin']],
+  ['visits', 'Visitors', ['admin']],
+  ['print', 'Print & poster', ['admin', 'editor']],
   ['codes', 'Codes', ['admin']],
   ['log', 'Activity', ['admin']],
 ];
@@ -108,7 +110,7 @@ function renderTab() {
   const el = body();
   if (!el) return;
   el.dataset.needsModel = '';
-  const fn = { match: tabMatch, fixtures: tabFixtures, squads: tabSquads, photos: tabPhotos, info: tabInfo, teams: tabTeams, announce: tabAnnounce, sponsors: tabSponsors, codes: tabCodes, log: tabLog }[st.tab];
+  const fn = { match: tabMatch, fixtures: tabFixtures, squads: tabSquads, photos: tabPhotos, info: tabInfo, teams: tabTeams, announce: tabAnnounce, sponsors: tabSponsors, codes: tabCodes, log: tabLog, visits: tabVisits, print: tabPrint }[st.tab];
   Promise.resolve(fn(el)).catch(handleError);
 }
 
@@ -1029,4 +1031,50 @@ async function tabLog(el) {
   el.innerHTML = rows.length ? `<ul class="log-list">${rows.map((r) => `
     <li><span class="muted small">${esc(r.time)}</span><b>${esc(r.who)}</b> <span class="role-chip">${esc(r.role)}</span><span>${esc(r.action)}</span></li>`).join('')}</ul>`
     : '<p class="muted">No activity yet.</p>';
+}
+
+/* ============================================================== visitors */
+
+async function tabVisits(el) {
+  el.innerHTML = loadingHtml();
+  const { days } = await call('visits');
+  if (!days.length) { el.innerHTML = '<div class="card pad"><p class="muted">No visits counted yet. Visits are counted on the live website (not on test copies).</p></div>'; return; }
+  const total = days.reduce((n, d) => n + d.v, 0), people = days.reduce((n, d) => n + d.u, 0);
+  const best = days.reduce((a, b) => (b.v > a.v ? b : a));
+  const pages = {};
+  days.forEach((d) => Object.entries(d.p || {}).forEach(([k, v]) => { pages[k] = (pages[k] || 0) + v; }));
+  const topPages = Object.entries(pages).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const last14 = days.slice(0, 14).reverse();
+  const maxV = Math.max(1, ...last14.map((d) => d.v));
+  const fmt = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  el.innerHTML = `
+    <div class="glance">
+      <div class="glance-tile"><b>${total}</b><span>Page views</span></div>
+      <div class="glance-tile"><b>${people}</b><span>Visitors (per day, added up)</span></div>
+      <div class="glance-tile"><b>${best.v}</b><span>Busiest day: ${esc(fmt(best.day))}</span></div>
+    </div>
+    <div class="card pad"><h3 class="a-h">Last 14 days</h3>
+      <div class="visit-bars">${last14.map((d) => `<div title="${esc(fmt(d.day))}: ${d.v} views, ${d.u} visitors"><span class="vb-n">${d.v}</span><i style="height:${(d.v / maxV) * 100}%"></i><span class="vb-d">${esc(d.day.slice(8))}</span></div>`).join('')}</div>
+    </div>
+    <div class="card pad"><h3 class="a-h">Most viewed pages</h3>
+      <ol class="vote-results">${topPages.map(([k, v]) => `<li><span class="vr-name"><span>${esc(k)}</span></span><span class="vr-bar"><i style="width:${(v / topPages[0][1]) * 100}%"></i></span><span class="vr-pct">${v}</span></li>`).join('')}</ol>
+    </div>
+    <div class="card pad"><h3 class="a-h">Day by day</h3>
+      <div class="tbl-wrap hscroll"><table class="tbl conn-tbl"><thead><tr><th>Day</th><th>Views</th><th>Visitors</th></tr></thead>
+      <tbody>${days.map((d) => `<tr><td>${esc(fmt(d.day))}</td><td>${d.v}</td><td>${d.u}</td></tr>`).join('')}</tbody></table></div>
+      <p class="muted small">A visitor is one phone or computer on one day. Admin pages and test copies are not counted.</p>
+    </div>`;
+}
+
+/* ========================================================= print & poster */
+
+function tabPrint(el) {
+  el.innerHTML = `
+    <div class="card pad"><h3 class="a-h">🖨️ Printables</h3>
+      <p class="muted small">Always up to date with the sheet. Open, then use <b>Print → Save as PDF</b> (or print straight away).</p>
+      <div class="print-links">
+        <a class="btn" href="${href('poster.html')}" target="_blank">QR-code poster (A4)</a>
+        <a class="btn" href="${href('print.html')}" target="_blank">Schedule &amp; results sheet</a>
+      </div>
+    </div>`;
 }

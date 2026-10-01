@@ -38,7 +38,7 @@ runPage('teams', (model, page) => {
         <div>
           <p class="kicker">Group ${esc(t.group)} · Class of ${esc(t.years || '—')}</p>
           <h1>${esc(t.name)}</h1>
-          <div class="th-badges">${stageBadge(t.stage)}${t.groupRow ? `<span class="badge">${ordinal(t.groupRow.pos)} in Group ${esc(t.group)}</span>` : ''}</div>
+          <div class="th-badges">${t.defending ? `<span class="badge badge-gold">🏆 ${esc(t.defending.season)} champions</span>` : ''}${stageBadge(t.stage)}${t.groupRow ? `<span class="badge">${ordinal(t.groupRow.pos)} in Group ${esc(t.group)}</span>` : ''}</div>
           <button type="button" class="btn-mine${getMyTeam() === t.key ? ' on' : ''}" id="my-team">${getMyTeam() === t.key ? '★ My team' : '☆ Make this my team'}</button>
         </div>
       </div>

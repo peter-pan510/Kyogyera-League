@@ -528,6 +528,30 @@ export function buildModel(t) {
   }));
   const halfMinutes = Math.max(1, parseInt(cfg.halfminutes, 10) || 10);
 
+  // Fan votes: one row per phone per award (the sheet keeps it that way).
+  const tallyOf = (rows) => {
+    const by = new Map();
+    rows.forEach((r) => {
+      const tm = teams.get(teamKey(r.team));
+      const p = tm ? players.get(tm.key + '|' + personKey(r.player)) : null;
+      const k = (tm ? tm.key : '?') + '|' + personKey(r.player);
+      if (!by.has(k)) by.set(k, { name: p ? p.name : r.player, player: p, team: tm, count: 0 });
+      by.get(k).count++;
+    });
+    const list = [...by.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    return { list, total: rows.length };
+  };
+  const voteRows = t.votes.rows.filter((r) => r.player && r.kind);
+  const votes = { motm: {}, pott: tallyOf(voteRows.filter((r) => r.kind === 'pott')) };
+  [...new Set(voteRows.filter((r) => r.kind === 'motm').map((r) => r.matchid))].forEach((id) => {
+    votes.motm[normId(id)] = tallyOf(voteRows.filter((r) => r.kind === 'motm' && normId(r.matchid) === normId(id)));
+  });
+  const votingClosed = String(cfg.votingclosed || '').toLowerCase() === 'yes';
+  // Latest past champion that is one of this season's teams.
+  const lastSeason = [...history].sort((a, b) => String(b.year).localeCompare(String(a.year)))[0];
+  const defending = lastSeason && lastSeason.champion ? teams.get(teamKey(lastSeason.champion)) || null : null;
+  if (defending) defending.defending = lastSeason;
+
   // One-day tournament? (every dated match on the same calendar day)
   const days = new Set(matches.filter((m) => m.date && !m.date.noDay).map((m) => m.date.d.toDateString()));
   const oneDay = days.size <= 1 && matches.some((m) => m.date);
@@ -541,7 +565,8 @@ export function buildModel(t) {
     oneDay, matchDay: matchDay || (firstKick ? firstKick.date : null), firstKick, liveMatches, upcoming,
     players: playerList, statColumns, tournament: tournamentTotals(matches, teamList, playerList),
     ...content,
-    history, halfMinutes, redBan,
+    history, halfMinutes, redBan, defending, votes, votingClosed,
+    motmVotes: (id) => votes.motm[normId(id)] || { list: [], total: 0 },
     playerBySlug: (slug) => playerList.find((p) => p.slug === slug) || null,
     issues: [...new Set(issues)],
     teamBySlug: (slug) => teamList.find((tm) => tm.slug === slug) || null,
