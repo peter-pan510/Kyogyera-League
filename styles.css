@@ -1157,3 +1157,25 @@ a.b-match:hover { border-color: var(--gold); }
 }
 .mc-share:hover { background: rgba(37, 211, 102, 0.3); }
 .mc-share.busy { opacity: 0.5; }
+
+/* fan vote results + visitor bars */
+.vote-card { display: grid; gap: 10px; }
+.vote-card .a-h { margin: 0; }
+.vote-card p { margin: 0; }
+.vote-results { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.vote-results li { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; align-items: center; gap: 10px; font-size: 14px; }
+.vr-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 600; }
+.vr-name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vr-bar { height: 8px; border-radius: 4px; background: rgba(148, 170, 230, 0.14); overflow: hidden; }
+.vr-bar i { display: block; height: 100%; border-radius: 4px; background: var(--chart-home); }
+.vote-results li:first-child .vr-bar i { background: var(--gold); }
+.vr-pct { font-family: var(--font-display); font-weight: 800; font-size: 18px; min-width: 42px; text-align: right; }
+.vote-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.vote-form select { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--text); font: 500 15px var(--font-body); }
+.vote-msg { grid-column: 1 / -1; margin: 0; color: var(--muted); }
+.visit-bars { display: flex; align-items: flex-end; gap: 6px; height: 150px; padding-top: 18px; }
+.visit-bars > div { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; min-width: 0; }
+.visit-bars i { display: block; width: 100%; max-width: 28px; min-height: 2px; border-radius: 4px 4px 0 0; background: var(--chart-home); }
+.vb-n { font-size: 11px; font-weight: 700; }
+.vb-d { font-size: 10.5px; color: var(--muted); border-top: 1px solid var(--line); width: 100%; text-align: center; padding-top: 3px; }
+.print-links { display: flex; flex-wrap: wrap; gap: 10px; }

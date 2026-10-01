@@ -1046,7 +1046,7 @@ async function tabVisits(el) {
   const topPages = Object.entries(pages).sort((a, b) => b[1] - a[1]).slice(0, 8);
   const last14 = days.slice(0, 14).reverse();
   const maxV = Math.max(1, ...last14.map((d) => d.v));
-  const fmt = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  const fmt = (d) => { const x = new Date(String(d).slice(0, 10) + 'T12:00:00'); return isNaN(x) ? String(d) : x.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); };
   el.innerHTML = `
     <div class="glance">
       <div class="glance-tile"><b>${total}</b><span>Page views</span></div>
@@ -1054,7 +1054,7 @@ async function tabVisits(el) {
       <div class="glance-tile"><b>${best.v}</b><span>Busiest day: ${esc(fmt(best.day))}</span></div>
     </div>
     <div class="card pad"><h3 class="a-h">Last 14 days</h3>
-      <div class="visit-bars">${last14.map((d) => `<div title="${esc(fmt(d.day))}: ${d.v} views, ${d.u} visitors"><span class="vb-n">${d.v}</span><i style="height:${(d.v / maxV) * 100}%"></i><span class="vb-d">${esc(d.day.slice(8))}</span></div>`).join('')}</div>
+      <div class="visit-bars">${last14.map((d) => `<div title="${esc(fmt(d.day))}: ${d.v} views, ${d.u} visitors"><span class="vb-n">${d.v}</span><i style="height:${(d.v / maxV) * 100}%"></i><span class="vb-d">${esc(String(d.day).slice(8, 10))}</span></div>`).join('')}</div>
     </div>
     <div class="card pad"><h3 class="a-h">Most viewed pages</h3>
       <ol class="vote-results">${topPages.map(([k, v]) => `<li><span class="vr-name"><span>${esc(k)}</span></span><span class="vr-bar"><i style="width:${(v / topPages[0][1]) * 100}%"></i></span><span class="vr-pct">${v}</span></li>`).join('')}</ol>
