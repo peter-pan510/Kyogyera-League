@@ -15,6 +15,16 @@
     <button type="button" id="print">🖨️ Print / Save as PDF</button>
     <button type="button" id="png">⬇️ Picture for WhatsApp</button>
   </div>
+  <div class="pic-sheet no-print" id="pic-sheet" hidden>
+    <div class="pic-box">
+      <img id="pic-img" alt="Picture for WhatsApp">
+      <div class="pic-btns">
+        <button type="button" id="pic-shuffle">🔀 Shuffle photos</button>
+        <button type="button" id="pic-share">📤 Share / Save</button>
+        <button type="button" id="pic-close" class="ghost">Close</button>
+      </div>
+    </div>
+  </div>
   <main class="poster" id="poster"><p class="loading-msg">Loading…</p></main>
   <script src="config.js"></script>
   <script src="js/vendor/qrcode.js"></script>

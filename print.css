@@ -13,6 +13,16 @@ body { margin: 0; font-family: Inter, system-ui, sans-serif; color: #0b1638; bac
 h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; margin: 0; }
 .qr svg { display: block; width: 100%; height: auto; }
 
+/* ---- WhatsApp picture preview */
+.pic-sheet { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(5,11,31,0.85); }
+.pic-sheet[hidden] { display: none; }
+.pic-box { display: flex; flex-direction: column; align-items: center; gap: 12px; max-height: 100%; }
+.pic-box img { max-width: min(100%, 432px); max-height: calc(100vh - 120px); aspect-ratio: 1080 / 1350; border-radius: 8px; background: #0b1a4a; box-shadow: 0 10px 40px rgba(0,0,0,0.5); transition: opacity 0.2s; }
+.pic-sheet.busy img { opacity: 0.4; }
+.pic-btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.pic-btns button { font: 700 14px Inter, sans-serif; padding: 10px 16px; border-radius: 999px; border: 0; cursor: pointer; background: #f2c14e; color: #1b1400; }
+.pic-btns button.ghost { background: transparent; color: #cdd7f5; border: 1px solid #2a3768; }
+
 /* ---- poster */
 .poster {
   width: 210mm; height: 297mm; margin: 16px auto; overflow: hidden; position: relative;
