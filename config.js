@@ -20,7 +20,7 @@ window.KYOGYERA_CONFIG = {
   SHEET_ID: '1BefNkXvEjbRwUV1JAbQOr6sDZjf9t4gXedznfMpqJIA',
 
   // The public address of the website (used for the QR code on the poster and print sheet).
-  SITE_URL: 'https://peter-pan510.github.io/Kyogyera-League/',
+  SITE_URL: 'https://kyogyera-league.kiizapeterson256.workers.dev/',
 
   // The sheet's Admin web service (tools/apps-script/Admin.gs), used by the Admin page to save changes.
   ADMIN_API_URL: 'https://script.google.com/macros/s/AKfycbxxGdC5zpTpPfMRBSdTwvB3XYf4jvk2nZgLHd4X9VrYLMbxozvq-MaXOBjzQ6JYUIbc/exec',

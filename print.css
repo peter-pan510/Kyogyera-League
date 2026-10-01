@@ -97,11 +97,16 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
   .paper table { display: block; overflow-x: auto; }
 }
 @page { size: A4; margin: 0; }
+/* The sheet gets real margins on every printed page, so page 2, 3… never start at the paper's edge. */
+@page sheet { size: A4; margin: 12mm 11mm 12mm; }
 @media print {
-  body { background: #fff; }
+  body, .sheet-page { background: #fff; }
+  .p-foot { margin-top: 3mm; break-before: avoid; break-inside: avoid; }
   .no-print { display: none !important; }
   .poster, .paper { margin: 0; box-shadow: none; }
-  .paper { padding: 10mm 11mm; }
+  .paper { page: sheet; width: auto; min-height: 0; padding: 0; }
+  .paper tr, .g-results li { break-inside: avoid; }
+  .paper h2, .paper h3 { break-after: avoid; }
   .watermark::before { display: none; }
   .watermark img, .watermark span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
