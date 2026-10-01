@@ -54,7 +54,7 @@ window.KYOGYERA_CONFIG = {
   // Teams, players, info, photos and sponsors change rarely — re-downloaded this often.
   SLOW_REFRESH_SECONDS: 300,
 
-  // Qualification rules (top N per group + best M third-placed teams).
+  // Qualification: top N per group go through. The best third-placed teams fill
+  // the rest of the 8-team bracket automatically (3 groups -> 2 thirds, 4 groups -> none).
   QUALIFY_TOP_PER_GROUP: 2,
-  QUALIFY_BEST_THIRDS: 2,
 };

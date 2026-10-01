@@ -46,8 +46,8 @@ runPage('home', (model, page) => {
           <p>${esc(cfg.about || DEFAULT_ABOUT)}</p>
         </div>
         <ol class="steps">
-          <li><b>Group stage</b><span>3 groups · every team plays each team in its group once. Win 3, draw 1.</span></li>
-          <li><b>8 qualify</b><span>Top 2 in each group + the 2 best third-placed teams.</span></li>
+          <li><b>Group stage</b><span>${model.groups.length} groups · every team plays each team in its group once. Win 3, draw 1.</span></li>
+          <li><b>${model.qual.total || 8} qualify</b><span>${esc(model.qual.rule)}</span></li>
           <li><b>Knockouts</b><span>Quarterfinals → Semifinals → Final. One match, winner goes through.</span></li>
           <li><b>All in one day</b><span>Every match — from the first group game to the final — is played on match day.</span></li>
         </ol>

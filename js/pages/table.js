@@ -1,11 +1,12 @@
 import { runPage, pageHero, standingsTable, segTabs } from '../ui.js';
+import { TOP_N } from '../model.js';
 
 let mode = 'group';
 let model = null;
 
 runPage('table', (m, page) => {
   model = m;
-  page.innerHTML = pageHero('The Kyogyera Table', 'All 11 teams ranked together — who is really the best in the league?') +
+  page.innerHTML = pageHero('The Kyogyera Table', `All ${m.teamList.length} teams ranked together — who is really the best in the league?`) +
     '<div class="wrap section" id="t-body"></div>';
   draw();
 });
@@ -26,14 +27,14 @@ function draw() {
       ${standingsTable(rows, { cols: ['grp', 'p', 'w', 'd', 'l', 'gf', 'ga', 'gd', 'pts', 'ppg', 'form', 'stage'], liveAny: true })}
     </article>
     <ul class="legend">
-      <li><span class="key key-q"></span>Qualified via top 2 in group</li>
-      <li><span class="key key-q3"></span>Qualified as a best 3rd-placed team</li>
+      <li><span class="key key-q"></span>Qualified via top ${TOP_N} in group</li>
+      ${model.qual.bestThirds ? '<li><span class="key key-q3"></span>Qualified as a best 3rd-placed team</li>' : ''}
     </ul>
     <div class="card note-card">
       <p><b>How this table works.</b> ${mode === 'group'
         ? 'Counts group-stage matches only, ranked by points, then goal difference, then goals scored.'
         : 'Counts every match played, including knockouts (a knockout draw counts as a draw here, whatever happened on penalties).'}
-      Group C has 3 teams, so its teams play one game fewer in the group stage — the <b>PPG</b> (points per game) column gives a fairer comparison.
+      ${new Set(model.groups.map((g) => g.teams.length)).size > 1 ? 'Groups have different numbers of teams, so some teams play fewer group games — the <b>PPG</b> (points per game) column gives a fairer comparison.' : 'The <b>PPG</b> column shows points per game.'}
       Qualification is decided by the group tables, not this one.</p>
     </div>`;
 }

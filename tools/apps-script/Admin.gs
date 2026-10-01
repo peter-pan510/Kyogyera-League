@@ -84,9 +84,9 @@ function klHandleOp(a, req, who, withState, need, tabOk) {
 
     // ---- generic tab editing
     case 'list': tabOk(req.tab); return klList(req.tab);
-    case 'add': tabOk(req.tab); return klWrite(who, () => klAdd(req.tab, req.values), 'Added a row to ' + req.tab, req.values);
-    case 'update': tabOk(req.tab); return klWrite(who, () => klUpdate(req.tab, req.row, req.values, req.before), 'Edited ' + req.tab + ' row ' + req.row, req.values);
-    case 'remove': tabOk(req.tab); return klWrite(who, () => klRemove(req.tab, req.row, req.before), 'Deleted ' + req.tab + ' row ' + req.row, req.before);
+    case 'add': tabOk(req.tab); return klWrite(who, () => klAfterTeams(req.tab, klAdd(req.tab, req.values)), 'Added a row to ' + req.tab, req.values);
+    case 'update': tabOk(req.tab); return klWrite(who, () => klAfterTeams(req.tab, klUpdate(req.tab, req.row, req.values, req.before)), 'Edited ' + req.tab + ' row ' + req.row, req.values);
+    case 'remove': tabOk(req.tab); return klWrite(who, () => klAfterTeams(req.tab, klRemove(req.tab, req.row, req.before)), 'Deleted ' + req.tab + ' row ' + req.row, req.before);
 
     // ---- match console
     case 'matches': need(KL.MATCH_ROLES); return { matches: klMatchList() };
@@ -103,6 +103,7 @@ function klHandleOp(a, req, who, withState, need, tabOk) {
     case 'addPlayer': need(KL.MATCH_ROLES.concat(['editor'])); return klWrite(who, () => ({ added: klEnsurePlayer(req.team, req.player, req.number, req.position) }), 'New player ' + req.player + ' (' + req.team + ')');
     case 'setFixture': need(KL.FIXTURE_ROLES); return klWrite(who, () => klSetFixture(req.matchId, req.values), req.matchId + ' fixture updated', req.values);
     case 'fixtures': need(KL.FIXTURE_ROLES); return klFixtureState();
+    case 'syncFixtures': need(KL.FIXTURE_ROLES); return klWrite(who, () => klSyncGroupFixtures(), 'Rebuilt missing group fixtures');
     case 'groupDraw': need(KL.FIXTURE_ROLES); return klWrite(who, () => klGroupDraw(req.groups), 'Group draw', req.groups);
     case 'koDraw': need(KL.FIXTURE_ROLES); return klWrite(who, () => klKoDraw(req.pairs), 'Knockout draw', req.pairs);
 
@@ -308,7 +309,12 @@ function klUpdate(tab, row, values, before) {
   const head = klHead(sh);
   const now = klCheckRow(sh, head, row, before);
   sh.getRange(Number(row), 1, 1, head.length).setValues([klRowArray(head, values, now)]);
-  return { row: Number(row) };
+  const out = { row: Number(row) };
+  if (tab === 'Teams' && values && values.TeamName != null) {
+    const old = now[head.indexOf('TeamName')], name = String(values.TeamName).trim();
+    if (old && name && old !== name) out.renamed = klRenameTeam(old, name);
+  }
+  return out;
 }
 
 function klRemove(tab, row, before) {
@@ -669,6 +675,102 @@ function klGroupDraw(groups) {
   fsh.getRange(2, 1, Math.max(frows.length, 1), fhead.length).clearContent();
   fsh.getRange(2, 1, out.length, fhead.length).setValues(out);
   return { matches: out.length };
+}
+
+/* ======================================================== teams & groups */
+
+// Every column that holds a team name, so a renamed team follows everywhere.
+const KL_TEAM_COLS = {
+  GroupFixtures: ['TeamHome', 'TeamAway', 'MOTMTeam'], KnockoutFixtures: ['TeamHome', 'TeamAway', 'MOTMTeam'],
+  Players: ['Team'], Goals: ['Team'], Cards: ['Team'], MatchStats: ['Team'], Photos: ['Team'],
+  GoalsForm: ['Team'], CardsForm: ['Team'], MOTMForm: ['Team'],
+};
+
+function klRenameTeam(oldName, newName) {
+  const key = klKey(oldName);
+  let n = 0;
+  Object.keys(KL_TEAM_COLS).forEach((tab) => {
+    const sh = klSS().getSheetByName(tab);
+    if (!sh || sh.getLastRow() < 2) return;
+    const head = klHead(sh);
+    KL_TEAM_COLS[tab].forEach((col) => {
+      const c = head.indexOf(col);
+      if (c < 0) return;
+      const rng = sh.getRange(2, c + 1, sh.getLastRow() - 1, 1);
+      const vals = rng.getDisplayValues();
+      let hit = false;
+      vals.forEach((r) => { if (r[0] && klKey(r[0]) === key) { r[0] = newName; hit = true; n++; } });
+      if (hit) rng.setValues(vals);
+    });
+  });
+  return n;
+}
+
+// After any change on the Teams tab, keep the group fixtures in step.
+function klAfterTeams(tab, out) {
+  if (tab === 'Teams') out.fixtures = klSyncGroupFixtures();
+  return out;
+}
+
+/**
+ * Makes GroupFixtures match the Teams tab: every pair of teams in a group plays
+ * once. Missing games are added (no kick-off time yet); games that haven't
+ * started and no longer fit (team removed or moved to another group) are removed.
+ * Games that have a score or status are never touched.
+ */
+function klSyncGroupFixtures() {
+  const groups = {};
+  klList('Teams').rows.forEach((r) => {
+    const g = String(r.values.Group || '').toUpperCase().replace(/^GROUP\s*/, '').trim();
+    const name = String(r.values.TeamName || '').trim();
+    if (g && name) (groups[g] = groups[g] || []).push(name);
+  });
+  const groupOf = {};
+  Object.keys(groups).forEach((g) => groups[g].forEach((n) => { groupOf[klKey(n)] = g; }));
+
+  const sh = klSheet('GroupFixtures');
+  const head = klHead(sh);
+  const rows = klList('GroupFixtures').rows;
+  const pairKey = (g, a, b) => g + '|' + [klKey(a), klKey(b)].sort().join('|');
+  const started = (v) => v.Status || v.ScoreHome !== '' || v.ScoreAway !== '';
+  const have = {}, usedIds = {}, drop = [];
+  rows.forEach((r) => {
+    const v = r.values, g = String(v.Group || '').toUpperCase().replace(/^GROUP\s*/, '').trim();
+    const fits = groupOf[klKey(v.TeamHome)] === g && groupOf[klKey(v.TeamAway)] === g && klKey(v.TeamHome) !== klKey(v.TeamAway);
+    if (!fits && !started(v)) { drop.push(r._row); return; }
+    have[pairKey(g, v.TeamHome, v.TeamAway)] = true;
+    usedIds[String(v.MatchID).toUpperCase().trim()] = true;
+  });
+
+  const add = [];
+  Object.keys(groups).sort().forEach((g) => {
+    let n = 1;
+    const nextId = () => { while (usedIds['G' + g + n]) n++; usedIds['G' + g + n] = true; return 'G' + g + n; };
+    klRoundRobin(groups[g]).forEach((round) => round.forEach((m) => {
+      if (have[pairKey(g, m[0], m[1])]) return;
+      have[pairKey(g, m[0], m[1])] = true;
+      add.push(klRowArray(head, { MatchID: nextId(), Group: g, TeamHome: m[0], TeamAway: m[1] }));
+    }));
+  });
+
+  drop.sort((a, b) => b - a).forEach((r) => sh.deleteRow(r));
+  if (add.length) sh.getRange(sh.getLastRow() + 1, 1, add.length, head.length).setValues(add);
+  if (add.length || drop.length) klRefreshMatchDropdowns();
+  return { added: add.length, removed: drop.length };
+}
+
+// Goals/Cards/MatchStats only accept known match IDs; add the new ones.
+function klRefreshMatchDropdowns() {
+  try {
+    const ids = [];
+    ['GroupFixtures', 'KnockoutFixtures'].forEach((tab) => klList(tab).rows.forEach((r) => { if (r.values.MatchID) ids.push(r.values.MatchID); }));
+    const rule = SpreadsheetApp.newDataValidation().requireValueInList(ids, true).setAllowInvalid(false).build();
+    ['Goals', 'Cards', 'MatchStats'].forEach((tab) => {
+      const sh = klSS().getSheetByName(tab);
+      const c = sh ? klHead(sh).indexOf('MatchID') : -1;
+      if (c >= 0) sh.getRange(2, c + 1, Math.max(sh.getMaxRows() - 1, 1), 1).setDataValidation(rule);
+    });
+  } catch (e) { /* dropdowns are a convenience only */ }
 }
 
 /** Knockout draw: pairs = [[home, away] x4] for QF1..QF4. */

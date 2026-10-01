@@ -4,6 +4,11 @@ body { margin: 0; font-family: Inter, system-ui, sans-serif; color: #0b1638; bac
 .toolbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; padding: 10px; background: #050b1f; }
 .toolbar a { color: #cdd7f5; text-decoration: none; font-weight: 600; margin-right: auto; }
 .toolbar button { font: 700 14px Inter, sans-serif; padding: 9px 14px; border-radius: 999px; border: 0; cursor: pointer; background: #f2c14e; color: #1b1400; }
+.toolbar .parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.toolbar .parts button { background: transparent; color: #cdd7f5; border: 1px solid #2a3768; }
+.toolbar .parts button.on { background: #1d2c63; color: #fff; border-color: #f2c14e; }
+.locked { padding: 30mm 10mm; text-align: center; }
+.locked h2 { border: 0 !important; padding: 0 !important; }
 .loading-msg { padding: 40px; text-align: center; }
 h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; margin: 0; }
 .qr svg { display: block; width: 100%; height: auto; }
@@ -31,6 +36,13 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
 
 /* ---- schedule & results sheet */
 .paper { width: 210mm; min-height: 297mm; margin: 16px auto; padding: 12mm 12mm 14mm; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.2); font-size: 9.5pt; }
+/* Watermark: faded badge + league name behind the sheet (repeats on every printed page). */
+.sheet-page .paper { position: relative; z-index: 1; background: transparent; }
+.sheet-page { background: #dfe3ee; }
+.watermark { position: fixed; inset: 0; z-index: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; }
+.watermark::before { content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 210mm; transform: translateX(-50%); background: #fff; z-index: -1; }
+.watermark img { width: 110mm; height: auto; opacity: 0.06; }
+.watermark span { font: 800 46pt "Barlow Condensed", "Arial Narrow", sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: #0b1a4a; opacity: 0.06; transform: rotate(-30deg); white-space: nowrap; position: absolute; }
 .p-head { display: flex; align-items: center; gap: 5mm; border-bottom: 1mm solid #f2c14e; padding-bottom: 4mm; }
 .p-head img { width: 22mm; height: 22mm; }
 .p-head h1 { font-size: 26pt; color: #0b1a4a; line-height: 1; }
@@ -45,10 +57,31 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
 .paper .win { font-weight: 700; }
 .paper .stage { color: #47507a; white-space: nowrap; }
 .paper .live { color: #c43d4b; font-weight: 800; }
-.groups { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; }
+/* Two groups per row on A4, so Group C, D… wrap underneath instead of running off the page. */
+.groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5mm 6mm; }
+.groups > div { min-width: 0; }
+.groups table.gt { table-layout: fixed; }
+.groups th:first-child, .groups td:first-child { width: 7mm; }
+.groups th:nth-child(2), .groups td:nth-child(2), .groups td:nth-child(3) { width: auto; overflow-wrap: anywhere; }
+.groups th.c, .groups td.c { width: 8mm; padding-left: 0.5mm; padding-right: 0.5mm; }
+.groups th:last-child, .groups td:last-child { width: 9mm; }
 .groups h3 { font-size: 12pt; color: #0b1a4a; margin-bottom: 1mm; }
-.groups .q td:first-child { box-shadow: inset 1mm 0 0 #f2c14e; }
-.groups .q3 td:first-child { box-shadow: inset 1mm 0 0 #3ea6ff; }
+.p-kind { font-family: "Barlow Condensed", "Arial Narrow", sans-serif; font-weight: 800; text-transform: uppercase; font-size: 13pt; color: #0b1a4a !important; }
+.paper tr.q td:first-child { box-shadow: inset 1mm 0 0 #f2c14e; }
+.paper tr.q3 td:first-child { box-shadow: inset 1mm 0 0 #3ea6ff; }
+.paper h3 { font-size: 12pt; color: #0b1a4a; margin-bottom: 1mm; }
+.h3-gap { margin-top: 5mm; }
+.g-perf { margin-top: 4mm; }
+.g-perf h3 span { font-family: Inter, sans-serif; text-transform: none; font-weight: 600; font-size: 8.5pt; color: #6b7393; margin-left: 2mm; }
+.g-perf .form { white-space: nowrap; font-size: 8pt; letter-spacing: 0.05em; }
+.g-results { list-style: none; margin: 2mm 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 6mm; font-size: 8.5pt; }
+.g-results li { display: grid; grid-template-columns: 1fr auto 1fr; gap: 2mm; padding: 0.8mm 0; border-bottom: 0.2mm dotted #d6dbe8; }
+.g-results li span:first-child { text-align: right; }
+.g-results b { white-space: nowrap; min-width: 12mm; text-align: center; }
+.glance-p { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3mm; margin-bottom: 2mm; }
+.glance-p div { border: 0.3mm solid #d6dbe8; border-radius: 2mm; padding: 2mm; text-align: center; font-size: 8pt; color: #47507a; }
+.glance-p b { display: block; font: 800 16pt "Barlow Condensed", sans-serif; color: #0b1a4a; }
+.glance-p small { font-size: 10pt; color: #6b7393; }
 .p-foot { margin-top: 6mm; display: flex; justify-content: space-between; color: #6b7393; font-size: 8pt; border-top: 0.3mm solid #d6dbe8; padding-top: 2mm; }
 .legend-p { margin: 1.5mm 0 0; color: #6b7393; font-size: 8pt; }
 .avoid-break { break-inside: avoid; }
@@ -56,7 +89,12 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
 @media screen and (max-width: 820px) {
   .poster, .paper { transform-origin: top left; margin: 10px; }
   .paper { width: auto; min-height: 0; padding: 14px; font-size: 12px; }
-  .groups { grid-template-columns: 1fr; }
+  .groups, .g-results { grid-template-columns: 1fr; }
+  .watermark::before { width: auto; left: 10px; right: 10px; transform: none; }
+  .watermark img { width: 60vw; }
+  .watermark span { font-size: 28pt; }
+  .glance-p { grid-template-columns: repeat(2, 1fr); }
+  .paper table { display: block; overflow-x: auto; }
 }
 @page { size: A4; margin: 0; }
 @media print {
@@ -64,4 +102,6 @@ h1, h2, h3, .disp { font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
   .no-print { display: none !important; }
   .poster, .paper { margin: 0; box-shadow: none; }
   .paper { padding: 10mm 11mm; }
+  .watermark::before { display: none; }
+  .watermark img, .watermark span { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

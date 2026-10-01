@@ -1,5 +1,5 @@
 import { runPage, esc, pageHero, standingsTable, legendQual, matchCard, teamLink, sectionHead } from '../ui.js';
-import { TOP_N, BEST_THIRDS, chronoCmp } from '../model.js';
+import { TOP_N, chronoCmp } from '../model.js';
 
 runPage('groups', (model, page) => {
   const groupsHtml = model.groups.map((g) => {
@@ -11,7 +11,7 @@ runPage('groups', (model, page) => {
     const third = g.table[TOP_N];
     const foot = model.anyPlayed ? `<p class="group-foot">
         <strong>${g.complete ? 'Qualified' : 'Currently qualifying'}:</strong> ${q.map((r) => esc(r.team.name)).join(' &amp; ')}
-        ${third ? `<br><span class="muted">3rd: ${esc(third.team.name)} — ${third.status === 'q3' ? 'in a best-3rd spot' : 'outside the best-3rd spots'}${model.qual.allComplete ? '' : ' (provisional)'}</span>` : ''}
+        ${third && model.qual.bestThirds ? `<br><span class="muted">3rd: ${esc(third.team.name)} — ${third.status === 'q3' ? 'in a best-3rd spot' : 'outside the best-3rd spots'}${model.qual.allComplete ? '' : ' (provisional)'}</span>` : ''}
       </p>` : '';
     const matches = [...g.matches].sort(chronoCmp);
     return `<article class="card group-block" id="group-${esc(g.id)}">
@@ -36,17 +36,17 @@ runPage('groups', (model, page) => {
   <div class="wrap">
     <p class="swipe-note">↔ Swipe a table sideways to see every column</p>
     <div class="group-stack">${groupsHtml}</div>
-    ${legendQual()}
+    ${legendQual(model)}
 
-    <section class="section">
-      ${sectionHead('Race for the best 3rd place', `The ${BEST_THIRDS} best third-placed teams also qualify — compared on points, then goal difference, then goals scored.`)}
+    ${model.qual.bestThirds ? `<section class="section">
+      ${sectionHead('Race for the best 3rd place', `The ${model.qual.bestThirds} best third-placed teams also qualify — compared on points, then goal difference, then goals scored.`)}
       <article class="card">
         <div class="tbl-wrap hscroll"><table class="tbl">
           <thead><tr><th class="c-pos">#</th><th class="c-team">Team</th><th>Grp</th><th>P</th><th>GD</th><th>GF</th><th class="pts">Pts</th></tr></thead>
           <tbody>${thirds}</tbody></table></div>
-        <p class="group-foot muted">Group C has 3 teams, so its teams play one game fewer than Groups A and B.</p>
+        ${unevenNote(model.groups)}
       </article>
-    </section>
+    </section>` : ''}
   </div>`;
 
   if (location.hash) {
@@ -54,3 +54,13 @@ runPage('groups', (model, page) => {
     if (el && !page.dataset.scrolled) { page.dataset.scrolled = '1'; setTimeout(() => el.scrollIntoView(), 0); }
   }
 });
+
+// "Group C has 3 teams, so its teams play one game fewer than Groups A and B."
+function unevenNote(groups) {
+  const max = Math.max(...groups.map((g) => g.teams.length));
+  const small = groups.filter((g) => g.teams.length < max);
+  if (!small.length) return '';
+  const names = (list) => list.map((g) => g.id).join(', ').replace(/, ([^,]*)$/, ' and $1');
+  const big = groups.filter((g) => g.teams.length === max);
+  return `<p class="group-foot muted">Group${small.length > 1 ? 's' : ''} ${esc(names(small))} ${small.length > 1 ? 'have' : 'has'} fewer teams, so ${small.length > 1 ? 'their' : 'its'} teams play fewer games than Group${big.length > 1 ? 's' : ''} ${esc(names(big))}.</p>`;
+}

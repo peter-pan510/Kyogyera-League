@@ -3,7 +3,13 @@
 
 const CFG = window.KYOGYERA_CONFIG || {};
 export const TOP_N = Number(CFG.QUALIFY_TOP_PER_GROUP) || 2;
-export const BEST_THIRDS = CFG.QUALIFY_BEST_THIRDS == null ? 2 : Number(CFG.QUALIFY_BEST_THIRDS);
+export const BRACKET_SIZE = 8; // QF1–QF4
+
+// Best-third spots that fill the 8-team bracket for this many groups
+// (3 groups -> 2, 4 groups -> 0); never more than there are groups.
+export function bestThirdsFor(nGroups) {
+  return Math.max(0, Math.min(nGroups, BRACKET_SIZE - TOP_N * nGroups));
+}
 
 // Bracket shape: which matches feed which.
 export const FEEDS = { SF1: ['QF1', 'QF2'], SF2: ['QF3', 'QF4'], FINAL: ['SF1', 'SF2'] };
@@ -581,6 +587,7 @@ export function chronoCmp(a, b) {
 
 function computeQualifiers(groupList, anyPlayed) {
   const allComplete = groupList.length > 0 && groupList.every((g) => g.complete);
+  const bestThirds = bestThirdsFor(groupList.length);
   const direct = [];
   groupList.forEach((g) => {
     g.table.slice(0, TOP_N).forEach((r, i) => {
@@ -593,13 +600,14 @@ function computeQualifiers(groupList, anyPlayed) {
     .filter(Boolean)
     .sort((a, b) => byPtsGdGf(a.row, b.row) || a.row.team.name.localeCompare(b.row.team.name));
   thirds.forEach((th, i) => {
-    th.qualifies = i < BEST_THIRDS;
-    if (anyPlayed) th.row.status = th.qualifies ? 'q3' : 'out3';
+    th.qualifies = i < bestThirds;
+    if (anyPlayed && bestThirds) th.row.status = th.qualifies ? 'q3' : 'out3';
   });
   const best = thirds.filter((th) => th.qualifies).map((th, i) => ({
     label: '3rd #' + (i + 1), desc: 'Best 3rd place (Group ' + th.group + ')', team: th.row.team, row: th.row, confirmed: allComplete, third: true,
   }));
-  return { list: direct.concat(best), thirds, allComplete };
+  const rule = `Top ${TOP_N} in each group` + (bestThirds ? ` + the ${bestThirds} best third-placed team${bestThirds > 1 ? 's' : ''}` : '') + '.';
+  return { list: direct.concat(best), thirds: bestThirds ? thirds : [], allComplete, bestThirds, total: direct.length + best.length, rule };
 }
 
 // Winner of a knockout match. Draws are settled by the Note column naming the

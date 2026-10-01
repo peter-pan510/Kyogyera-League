@@ -21,7 +21,7 @@ runPage('knockout', (m, page) => {
 });
 
 function qualified() {
-  const head = sectionHead('Qualified teams', 'Top 2 in each group + the 2 best third-placed teams.');
+  const head = sectionHead('Qualified teams', esc(model.qual.rule));
   if (!model.anyPlayed) return head + emptyCard('The qualification picture appears here once the first group results are in.');
   const status = model.qual.allComplete
     ? '<span class="badge badge-done">Group stage complete — final list</span>'

@@ -15,7 +15,7 @@ const SECTIONS = [
   ['announce', 'Announcements', ['admin']],
   ['sponsors', 'Sponsors & ads', ['admin']],
   ['visits', 'Visitors', ['admin']],
-  ['print', 'Print & poster', ['admin', 'editor']],
+  ['print', 'Print & poster', ['admin']],
   ['codes', 'Codes', ['admin']],
   ['log', 'Activity', ['admin']],
 ];
@@ -143,7 +143,7 @@ async function act(btn, fn, okMsg = 'Saved ✓') {
   els.forEach((b) => { b.disabled = true; b.dataset.label = b.innerHTML; b.innerHTML = '<span class="spinner sm"></span>'; });
   try {
     const out = await fn();
-    toast(okMsg);
+    toast(typeof okMsg === 'function' ? okMsg(out) : okMsg);
     requestRefresh();
     return out;
   } catch (e) {
@@ -669,9 +669,11 @@ function tabFixtures(el) {
   if (needModel(el)) return;
   const teams = [...model.teamList].sort((a, b) => a.name.localeCompare(b.name));
   const q = model.qual;
+  const noTime = model.matches.filter((m) => !m.dateRaw).length;
   const teamSel = (name, current) => `<select name="${name}"><option value="">TBD</option>${teams.map((t) => `<option value="${esc(t.full)}"${current && teamKey(current) === t.key ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`;
   el.innerHTML = `
     <div id="draw"></div>
+    ${noTime ? `<div class="card pad note-card warn"><p><b>${noTime} match${noTime > 1 ? 'es have' : ' has'} no kick-off time yet</b> (new teams or groups). Set the times below so they show in the right order.</p></div>` : ''}
     <div class="card pad note-card"><p>Change kick-off times here, and fill in the knockout teams once the groups are done. Times are on <b>${esc(model.cfg.matchdate || 'match day')}</b> (change the date under Info &amp; settings → Config → MatchDate).</p></div>
     ${model.anyPlayed ? `<div class="card pad"><h3 class="a-h">Qualified so far${q.allComplete ? '' : ' (provisional)'}</h3>
       <p class="q-inline">${q.list.map((x) => `<span><b>${esc(x.label)}</b> ${esc(x.team.name)}</span>`).join('')}</p></div>` : ''}
@@ -717,6 +719,11 @@ async function drawSection(box) {
       <div id="gd-preview"></div>
     </div>
     <div class="card pad draw-card">
+      <h3 class="a-h">🔁 Check group fixtures</h3>
+      <p class="muted small">Makes sure every team plays each team in its group once (${ids.length} group${ids.length === 1 ? '' : 's'}: ${ids.map((g) => `${g} ${sizes[g]}`).join(' · ')}). Adds missing games and removes unplayed games for teams that left a group. This already happens by itself when you change the Teams tab here.</p>
+      <button type="button" class="btn-ghost" id="sync-go">Check &amp; fix fixtures</button>
+    </div>
+    <div class="card pad draw-card">
       <h3 class="a-h">🎲 Knockout draw</h3>
       ${fx.koStarted ? '<p class="muted small">A quarterfinal has started, so the draw is locked.</p>'
         : koReady ? `<p class="muted small">Randomly pair the 8 qualified teams into QF1–QF4, keeping teams from the same group apart where possible.</p>
@@ -724,6 +731,10 @@ async function drawSection(box) {
           : '<p class="muted small">Available once every group match is at full time and the 8 qualified teams are confirmed.</p>'}
       <div id="kd-preview"></div>
     </div>`;
+
+  box.querySelector('#sync-go').onclick = (e) => act(e.target, () => call('syncFixtures'),
+    (out) => (out && (out.added || out.removed) ? `Fixtures updated · ${out.added} added · ${out.removed} removed` : 'Fixtures already complete ✓'))
+    .then((out) => { if (out && (out.added || out.removed)) st.matches = null; });
 
   const gd = box.querySelector('#gd-go');
   if (gd) {
@@ -775,7 +786,7 @@ async function drawSection(box) {
  * Lists the rows of a sheet tab with Add / Edit / Delete.
  * cols: [key, label, type ('text'|'textarea'|'number'|'select'), options]
  */
-async function editor(el, tab, { cols, filter = null, defaults = {}, summary = null, addLabel = 'Add', empty = 'Nothing here yet.', thumb = null, reverse = false }) {
+async function editor(el, tab, { cols, filter = null, defaults = {}, summary = null, addLabel = 'Add', empty = 'Nothing here yet.', thumb = null, reverse = false, intro = '', done = null }) {
   el.innerHTML = loadingHtml();
   const data = await call('list', { tab });
   let rows = data.rows.filter((r) => !filter || filter(r.values));
@@ -788,7 +799,8 @@ async function editor(el, tab, { cols, filter = null, defaults = {}, summary = n
     return `<label>${esc(label)} ${input}</label>`;
   };
   const sum = summary || ((v) => esc(cols.map(([k]) => v[k]).filter(Boolean).slice(0, 2).join(' · ')));
-  el.innerHTML = `
+  if (typeof cols === 'function') cols = cols(data.rows);
+  el.innerHTML = `${intro}
     <details class="card add-box"><summary class="btn">${icon('arrow', 'ic ic-sm')} ${esc(addLabel)}</summary>
       <form class="ed-form" data-add>${cols.map((c) => field(c, defaults[c[0]])).join('')}<button type="submit" class="btn">Save</button></form>
     </details>
@@ -799,21 +811,23 @@ async function editor(el, tab, { cols, filter = null, defaults = {}, summary = n
         <form class="ed-form" data-save hidden>${cols.map((c) => field(c, r.values[c[0]])).join('')}<button type="submit" class="btn">Save changes</button></form>
       </li>`).join('')}</ul>` : `<p class="muted">${esc(empty)}</p>`}`;
   const values = (form) => Object.fromEntries(cols.map(([k]) => [k, form[k].value.trim()]));
-  const reload = () => editor(el, tab, { cols, filter, defaults, summary, addLabel, empty, thumb, reverse });
+  const opts = arguments[2];
+  const reload = () => editor(el, tab, opts);
+  const msg = (m) => (done ? (out) => done(out, m) : m);
   el.querySelector('[data-add]').onsubmit = (e) => {
     e.preventDefault();
-    act(e.target.querySelector('button'), () => call('add', { tab, values: values(e.target) }), 'Added ✓').then((ok) => ok && reload());
+    act(e.target.querySelector('button'), () => call('add', { tab, values: values(e.target) }), msg('Added ✓')).then((ok) => ok && reload());
   };
   el.querySelectorAll('.ed-item').forEach((li) => {
     const r = rows.find((x) => x._row === +li.dataset.row);
     li.querySelector('[data-edit]').onclick = () => { const f = li.querySelector('[data-save]'); f.hidden = !f.hidden; };
     li.querySelector('[data-save]').onsubmit = (e) => {
       e.preventDefault();
-      act(e.target.querySelector('button'), () => call('update', { tab, row: r._row, values: values(e.target), before: r._raw }), 'Saved ✓').then((ok) => ok && reload());
+      act(e.target.querySelector('button'), () => call('update', { tab, row: r._row, values: values(e.target), before: r._raw }), msg('Saved ✓')).then((ok) => ok && reload());
     };
     li.querySelector('[data-del]').onclick = (e) => {
       if (!confirm('Delete this? It will be removed from the sheet.')) return;
-      act(e.target, () => call('remove', { tab, row: r._row, before: r._raw }), 'Deleted ✓').then((ok) => ok && reload());
+      act(e.target, () => call('remove', { tab, row: r._row, before: r._raw }), msg('Deleted ✓')).then((ok) => ok && reload());
     };
   });
 }
@@ -944,11 +958,29 @@ async function tabInfo(el) {
   });
 }
 
+const LETTERS = 'ABCDEFGHIJKL'.split('');
+const normGroupId = (g) => String(g || '').toUpperCase().replace(/^GROUP\s*/, '').trim();
+
 function tabTeams(el) {
   return editor(el, 'Teams', {
-    cols: [['TeamName', 'Team name (with years)', 'text'], ['Group', 'Group', 'select', ['A', 'B', 'C', 'D']], ['Badge', 'Badge (file name in assets/badges or image link)', 'text'], ['Short', '3-letter code', 'text']],
-    summary: (v) => `<b>${esc(v.TeamName)}</b> <span class="muted small">Group ${esc(v.Group)}</span>`,
+    // Existing groups, plus the next letter so a new group can be started.
+    cols: (rows) => {
+      const size = {};
+      rows.forEach((r) => { const g = normGroupId(r.values.Group); if (g) size[g] = (size[g] || 0) + 1; });
+      const ids = Object.keys(size).sort();
+      const next = LETTERS.find((l) => !size[l]);
+      const opts = ids.map((g) => [g, `Group ${g} (${size[g]} team${size[g] === 1 ? '' : 's'})`]);
+      if (next) opts.push([next, `Group ${next} — start a new group`]);
+      return [['TeamName', 'Team name (with years)', 'text'], ['Group', 'Group', 'select', opts], ['Badge', 'Badge (file name in assets/badges or image link)', 'text'], ['Short', '3-letter code', 'text']];
+    },
+    summary: (v) => `<b>${esc(v.TeamName)}</b> <span class="muted small">Group ${esc(normGroupId(v.Group))}</span>`,
     addLabel: 'Add a team',
+    intro: `<div class="card pad note-card"><p>Adding a team, moving it to another group or deleting it <b>updates the group fixtures by itself</b>: every team plays each team in its group once. New games appear on <b>Fixtures &amp; draw</b> without a kick-off time — set the times there. Games that already have a score are never changed. Renaming a team renames it in fixtures, squads, goals and cards too.</p></div>`,
+    done: (out, m) => {
+      const f = out && out.fixtures;
+      const bits = f ? [f.added && `${f.added} new fixture${f.added > 1 ? 's' : ''}`, f.removed && `${f.removed} fixture${f.removed > 1 ? 's' : ''} removed`].filter(Boolean) : [];
+      return m + (bits.length ? ' · ' + bits.join(' · ') : '');
+    },
   });
 }
 
@@ -1074,7 +1106,15 @@ function tabPrint(el) {
       <p class="muted small">Always up to date with the sheet. Open, then use <b>Print → Save as PDF</b> (or print straight away).</p>
       <div class="print-links">
         <a class="btn" href="${href('poster.html')}" target="_blank">QR-code poster (A4)</a>
-        <a class="btn" href="${href('print.html')}" target="_blank">Schedule &amp; results sheet</a>
+      </div>
+    </div>
+    <div class="card pad"><h3 class="a-h">📄 Print the league</h3>
+      <p class="muted small">Pick what to print. Every group (including new ones) is laid out to fit A4. Only admins can open these.</p>
+      <div class="print-links">
+        <a class="btn" href="${href('print.html?part=standings')}" target="_blank">Standings</a>
+        <a class="btn" href="${href('print.html?part=groups')}" target="_blank">Group performance</a>
+        <a class="btn" href="${href('print.html?part=stats')}" target="_blank">Stats</a>
+        <a class="btn" href="${href('print.html?part=all')}" target="_blank">Whole document</a>
       </div>
     </div>`;
 }

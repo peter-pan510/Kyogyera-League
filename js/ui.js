@@ -1,6 +1,6 @@
 /* Shared layout (header, nav bars, footer) and building blocks used by every page. */
 import { DEMO, start } from './data.js';
-import { FEEDS, ROUND_LABEL } from './model.js';
+import { FEEDS, ROUND_LABEL, TOP_N } from './model.js';
 
 /* ---------------------------------------------------------------- basics */
 
@@ -62,8 +62,8 @@ export function adminSignedIn() {
 export const PAGES = [
   { id: 'home', href: 'index.html', label: 'Home', icon: 'home', desc: 'About the league, latest scores and where to go next.' },
   { id: 'matches', href: 'matches.html', label: 'Matches', icon: 'matches', desc: 'Every fixture and result — tap a match for goals, cards and stats.' },
-  { id: 'groups', href: 'groups.html', label: 'Groups', icon: 'groups', desc: 'Group A, B and C standings and the race to qualify.' },
-  { id: 'table', href: 'table.html', label: 'Table', icon: 'table', desc: 'The Kyogyera Table — all 11 teams ranked together.' },
+  { id: 'groups', href: 'groups.html', label: 'Groups', icon: 'groups', desc: 'Every group\'s standings and the race to qualify.' },
+  { id: 'table', href: 'table.html', label: 'Table', icon: 'table', desc: 'The Kyogyera Table — every team ranked together.' },
   { id: 'knockout', href: 'knockout.html', label: 'Knockouts', icon: 'knockout', desc: 'Who qualified and the bracket from quarterfinals to the final.' },
   { id: 'stats', href: 'stats.html', label: 'Stats', icon: 'stats', desc: 'Top scorers, assists, Man of the Match awards, cards and team stats.' },
   { id: 'teams', href: 'teams.html', label: 'Teams', icon: 'teams', desc: 'Every team’s record, form, win rate and squad.' },
@@ -120,7 +120,7 @@ export function mountShell(pageId) {
       <div id="footer-sponsors"></div>
       <p><span id="footer-venue">Kitabuguma Playground, Bishop McAllister, Sheema</span></p>
       <img class="footer-badge" src="${BADGE}" alt="Kyogyera League badge" width="72" height="72" loading="lazy">
-      <p class="muted">Scores update automatically from the official score sheet. · <a href="${href('print.html')}">Printable schedule</a> · <a href="${href('poster.html')}">QR poster</a> · <a href="${href('check.html')}">Data check (admin)</a></p>
+      <p class="muted">Scores update automatically from the official score sheet. · <a href="${href('poster.html')}">QR poster</a> · <a href="${href('check.html')}">Data check (admin)</a></p>
     </div>`;
   page.after(footer);
 
@@ -624,9 +624,9 @@ export function standingsTable(rows, { cols = ['p', 'w', 'd', 'l', 'gf', 'ga', '
     <tbody>${body}</tbody></table></div>`;
 }
 
-export const legendQual = () => `<ul class="legend">
-  <li><span class="key key-q"></span>Qualifies — top 2</li>
-  <li><span class="key key-q3"></span>Qualifies — best 3rd place</li>
+export const legendQual = (model) => `<ul class="legend">
+  <li><span class="key key-q"></span>Qualifies — top ${TOP_N}</li>
+  ${model && !model.qual.bestThirds ? '' : '<li><span class="key key-q3"></span>Qualifies — best 3rd place</li>'}
 </ul>`;
 
 /* ----------------------------------------------------------------- misc */
